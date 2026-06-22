@@ -1,0 +1,443 @@
+[gd_scene load_steps=2 format=3 uid="uid://main_scene"]
+
+[ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="BG" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="TopBar" type="PanelContainer" parent="SafeArea/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 50)
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/VBox/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="HBox" type="HBoxContainer" parent="SafeArea/VBox/TopBar/Margin"]
+layout_mode = 2
+
+[node name="LevelLabel" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+vertical_alignment = 1
+text = "Lv.1"
+
+[node name="Spacer" type="Control" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GoldIcon" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+text = "💰"
+
+[node name="GoldLabel" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+text = "0"
+
+[node name="GemSpacer" type="Control" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(16, 0)
+
+[node name="GemIcon" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+text = "💎"
+
+[node name="GemsLabel" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 1
+text = "0"
+
+[node name="ContentArea" type="Control" parent="SafeArea/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BattleView" type="Control" parent="SafeArea/VBox/ContentArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="EnemySection" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.03
+anchor_top = 0.01
+anchor_right = 0.97
+anchor_bottom = 0.5
+
+[node name="EnemyMargin" type="MarginContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="EnemyVBox" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ZoneLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+text = "黑暗森林"
+
+[node name="EnemySprite" type="Panel" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 130)
+
+[node name="EnemyIcon" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/EnemySprite"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+stretch_mode = 5
+expand_mode = 1
+
+[node name="EnemyName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+
+[node name="HPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnemyHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/HPRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 20)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="EnemyHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/HPRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+vertical_alignment = 1
+
+[node name="PlayerSection" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.03
+anchor_top = 0.52
+anchor_right = 0.97
+anchor_bottom = 0.72
+
+[node name="PlayerMargin" type="MarginContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="PlayerVBox" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Row1" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
+layout_mode = 2
+
+[node name="PlayerName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row1"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "暗影行者"
+
+[node name="HPText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row1"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+
+[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="Row2" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ExpText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+
+[node name="ExpBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 8)
+max_value = 100.0
+show_percentage = false
+
+[node name="ExpPct" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+
+[node name="StatsBar" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Atk" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+
+[node name="Def" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+
+[node name="Crit" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+
+[node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.03
+anchor_top = 0.74
+anchor_right = 0.97
+anchor_bottom = 0.84
+theme_override_constants/separation = 8
+
+[node name="BossBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 44)
+theme_override_font_sizes/font_size = 13
+text = "挑战Boss"
+
+[node name="PrevZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(38, 44)
+theme_override_font_sizes/font_size = 14
+text = "◀"
+
+[node name="ZoneBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 44)
+theme_override_font_sizes/font_size = 12
+
+[node name="NextZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(38, 44)
+theme_override_font_sizes/font_size = 14
+text = "▶"
+
+[node name="BattleLog" type="RichTextLabel" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.03
+anchor_top = 0.86
+anchor_right = 0.97
+anchor_bottom = 1.0
+theme_override_font_sizes/normal_font_size = 10
+bbcode_enabled = true
+scroll_following = true
+
+[node name="DmgLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="PanelView" type="Control" parent="SafeArea/VBox/ContentArea"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="PanelBG" type="Panel" parent="SafeArea/VBox/ContentArea/PanelView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="PanelLayout" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 0
+
+[node name="Header" type="PanelContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+
+[node name="HBox" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Header"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BackBtn" type="Button" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Header/HBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(40, 40)
+theme_override_font_sizes/font_size = 14
+text = "←"
+
+[node name="Title" type="Label" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Header/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1
+
+[node name="SubTabBar" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+theme_override_constants/separation = 0
+
+[node name="Scroll" type="ScrollContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ListContainer" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="ListMargin" type="MarginContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Scroll/ListContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 12
+
+[node name="ItemList" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Scroll/ListContainer/ListMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BottomNav" type="PanelContainer" parent="SafeArea/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 58)
+
+[node name="NavRow" type="HBoxContainer" parent="SafeArea/VBox/BottomNav"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Tab0" type="VBoxContainer" parent="SafeArea/VBox/BottomNav/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "⚔"
+
+[node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+horizontal_alignment = 1
+text = "战斗"
+
+[node name="Tab1" type="VBoxContainer" parent="SafeArea/VBox/BottomNav/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "🛡"
+
+[node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+horizontal_alignment = 1
+text = "角色"
+
+[node name="Tab2" type="VBoxContainer" parent="SafeArea/VBox/BottomNav/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "🏰"
+
+[node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+horizontal_alignment = 1
+text = "冒险"
+
+[node name="Tab3" type="VBoxContainer" parent="SafeArea/VBox/BottomNav/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "⚒"
+
+[node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+horizontal_alignment = 1
+text = "工坊"
+
+[node name="Tab4" type="VBoxContainer" parent="SafeArea/VBox/BottomNav/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "📜"
+
+[node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+horizontal_alignment = 1
+text = "更多"
+
+[node name="ToastLayer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchor_left = 0.1
+anchor_top = 0.35
+anchor_right = 0.9
+anchor_bottom = 0.55
+mouse_filter = 2
