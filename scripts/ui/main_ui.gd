@@ -70,6 +70,19 @@ var _atk_anim_playing := false
 
 # ==================== 图片资源路径 ====================
 const PLAYER_TEXTURE := "res://assets/characters/player_idle.png"
+const PLAYER_ATTACK_TEXTURE := "res://assets/characters/player_attack.png"
+const PLAYER_HURT_TEXTURE := "res://assets/characters/player_hurt.png"
+const ENEMY_IDLE_TEXTURE := "res://assets/enemies/poses/enemy_idle.png"
+const ENEMY_ATTACK_TEXTURE := "res://assets/enemies/poses/enemy_attack.png"
+const ENEMY_HURT_TEXTURE := "res://assets/enemies/poses/enemy_hurt.png"
+
+# 缓存加载的姿态贴图
+var _tex_player_idle: Texture2D
+var _tex_player_attack: Texture2D
+var _tex_player_hurt: Texture2D
+var _tex_enemy_idle: Texture2D
+var _tex_enemy_attack: Texture2D
+var _tex_enemy_hurt: Texture2D
 const NAV_ICONS: Array = [
 	"res://assets/ui/icons/nav_battle.png",
 	"res://assets/ui/icons/nav_character.png",
@@ -81,25 +94,25 @@ const ENEMY_TEXTURES: Array = [
 	"res://assets/enemies/shadow_wolf_v2.png",
 	"res://assets/enemies/skeleton_v2.png",
 	"res://assets/enemies/demon_v2.png",
-	"res://assets/enemies/shadow_wolf_v2.png",
-	"res://assets/enemies/skeleton_v2.png",
 	"res://assets/enemies/demon_v2.png",
-	"res://assets/enemies/shadow_wolf_v2.png",
-	"res://assets/enemies/skeleton_v2.png",
+	"res://assets/enemies/fallen_angel_v2.png",
+	"res://assets/enemies/void_beast_v2.png",
+	"res://assets/enemies/fallen_angel_v2.png",
 	"res://assets/enemies/demon_v2.png",
+	"res://assets/enemies/void_beast_v2.png",
 	"res://assets/enemies/shadow_wolf_v2.png",
 ]
 const ZONE_BG_TEXTURES: Array = [
 	"res://assets/zones/forest_v2.png",
+	"res://assets/zones/tomb_v2.png",
+	"res://assets/zones/abyss_v2.png",
+	"res://assets/zones/abyss_v2.png",
+	"res://assets/zones/tomb_v2.png",
 	"res://assets/zones/forest_v2.png",
+	"res://assets/zones/abyss_v2.png",
+	"res://assets/zones/tomb_v2.png",
 	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/forest_v2.png",
+	"res://assets/zones/abyss_v2.png",
 ]
 
 # ==================== 初始化 ====================
@@ -248,9 +261,16 @@ func _load_nav_icons() -> void:
 				icon_rect.texture = tex
 
 func _load_player_sprite() -> void:
-	var tex: Texture2D = load(PLAYER_TEXTURE)
-	if tex:
-		player_sprite.texture = tex
+	_tex_player_idle = load(PLAYER_TEXTURE)
+	_tex_player_attack = load(PLAYER_ATTACK_TEXTURE)
+	_tex_player_hurt = load(PLAYER_HURT_TEXTURE)
+	_tex_enemy_idle = load(ENEMY_IDLE_TEXTURE)
+	_tex_enemy_attack = load(ENEMY_ATTACK_TEXTURE)
+	_tex_enemy_hurt = load(ENEMY_HURT_TEXTURE)
+	if _tex_player_idle:
+		player_sprite.texture = _tex_player_idle
+	if _tex_enemy_idle:
+		enemy_sprite.texture = _tex_enemy_idle
 
 # ==================== 样式工具 ====================
 func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
@@ -326,61 +346,208 @@ func _idle_animation(delta: float) -> void:
 	if _atk_anim_playing:
 		return
 	_idle_phase += delta * 2.0
-	player_sprite.position.y += sin(_idle_phase) * 0.3
-	enemy_sprite.position.y += sin(_idle_phase * 0.85 + 1.0) * 0.3
+	# 呼吸浮动 + 微弱缩放
+	player_sprite.position.y = sin(_idle_phase) * 3.0
+	enemy_sprite.position.y = sin(_idle_phase * 0.85 + 1.0) * 3.0
+	# 微缩放呼吸感
+	var breath_scale: float = 1.0 + sin(_idle_phase * 1.2) * 0.008
+	player_sprite.scale = Vector2(breath_scale, breath_scale)
+	enemy_sprite.scale = Vector2(breath_scale, breath_scale)
 
+# ---------- 玩家攻击: 切换攻击姿态 + 冲刺 + 斩击弧光 ----------
 func _play_player_attack() -> void:
 	if _atk_anim_playing:
 		return
 	_atk_anim_playing = true
 	var orig_x: float = player_sprite.position.x
+	var orig_y: float = player_sprite.position.y
+	# 切换为攻击姿态图
+	if _tex_player_attack:
+		player_sprite.texture = _tex_player_attack
 	var tw := create_tween()
-	tw.tween_property(player_sprite, "position:x", orig_x + 30, 0.1).set_ease(Tween.EASE_OUT)
-	tw.tween_property(player_sprite, "position:x", orig_x, 0.15).set_ease(Tween.EASE_IN)
+	# Phase 1: 蓄力后仰(0.06s)
+	tw.tween_property(player_sprite, "rotation", -0.12, 0.06).set_ease(Tween.EASE_IN)
+	# Phase 2: 冲刺前倾(0.08s)
+	tw.tween_property(player_sprite, "position:x", orig_x + 50, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(player_sprite, "rotation", 0.15, 0.08).set_ease(Tween.EASE_OUT)
+	# Phase 3: 命中瞬间 - 触发特效 + 敌人切换受伤姿态
+	tw.tween_callback(_spawn_slash_arc)
+	tw.tween_callback(_shake_enemy)
+	tw.tween_callback(_flash_enemy_hit)
+	tw.tween_callback(_spawn_hit_sparks)
+	tw.tween_callback(_set_enemy_hurt_pose)
+	# Phase 4: 回弹(0.18s)
+	tw.tween_property(player_sprite, "position:x", orig_x, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	tw.parallel().tween_property(player_sprite, "rotation", 0.0, 0.15).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(player_sprite, "position:y", orig_y, 0.12)
+	# Phase 5: 落地微蹲 + 恢复待机姿态
+	tw.tween_property(player_sprite, "scale", Vector2(1.05, 0.95), 0.05)
+	tw.tween_property(player_sprite, "scale", Vector2(1.0, 1.0), 0.08).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(_restore_idle_poses)
 	tw.tween_callback(func(): _atk_anim_playing = false)
-	_shake_enemy()
-	_spawn_slash()
 
+# ---------- 敌人攻击: 切换攻击姿态 + 蓄力 + 冲击 ----------
 func _play_enemy_attack() -> void:
 	if _atk_anim_playing:
 		return
 	_atk_anim_playing = true
 	var orig_x: float = enemy_sprite.position.x
+	var orig_y: float = enemy_sprite.position.y
+	# 切换为攻击姿态图
+	if _tex_enemy_attack:
+		enemy_sprite.texture = _tex_enemy_attack
 	var tw := create_tween()
-	tw.tween_property(enemy_sprite, "position:x", orig_x - 30, 0.1).set_ease(Tween.EASE_OUT)
-	tw.tween_property(enemy_sprite, "position:x", orig_x, 0.15).set_ease(Tween.EASE_IN)
+	# Phase 1: 蓄力 - 身体膨胀+发光(0.2s)
+	tw.tween_property(enemy_sprite, "scale", Vector2(1.15, 1.15), 0.12).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(enemy_sprite, "modulate", Color(1.4, 0.7, 0.7, 1.0), 0.12)
+	# Phase 2: 蓄力闪烁
+	tw.tween_property(enemy_sprite, "modulate", Color(1.0, 1.0, 1.0, 0.6), 0.05)
+	tw.tween_property(enemy_sprite, "modulate", Color(1.5, 0.5, 0.5, 1.0), 0.05)
+	# Phase 3: 冲击(0.08s)
+	tw.tween_property(enemy_sprite, "position:x", orig_x - 55, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(enemy_sprite, "rotation", -0.12, 0.08)
+	# Phase 4: 命中 - 触发特效 + 玩家切换受伤姿态
+	tw.tween_callback(_shake_player)
+	tw.tween_callback(_flash_player_hit)
+	tw.tween_callback(_spawn_enemy_skill_effect)
+	tw.tween_callback(_set_player_hurt_pose)
+	# Phase 5: 回弹(0.2s)
+	tw.tween_property(enemy_sprite, "position:x", orig_x, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	tw.parallel().tween_property(enemy_sprite, "rotation", 0.0, 0.15)
+	tw.parallel().tween_property(enemy_sprite, "modulate", Color(1, 1, 1, 1), 0.15)
+	tw.parallel().tween_property(enemy_sprite, "scale", Vector2(1.0, 1.0), 0.15)
+	tw.parallel().tween_property(enemy_sprite, "position:y", orig_y, 0.12)
+	# 恢复待机姿态
+	tw.tween_callback(_restore_idle_poses)
 	tw.tween_callback(func(): _atk_anim_playing = false)
-	_shake_player()
 
+# ---------- 姿态切换辅助函数 ----------
+func _set_enemy_hurt_pose() -> void:
+	if _tex_enemy_hurt:
+		enemy_sprite.texture = _tex_enemy_hurt
+
+func _set_player_hurt_pose() -> void:
+	if _tex_player_hurt:
+		player_sprite.texture = _tex_player_hurt
+
+func _restore_idle_poses() -> void:
+	if _tex_player_idle:
+		player_sprite.texture = _tex_player_idle
+	if _tex_enemy_idle:
+		enemy_sprite.texture = _tex_enemy_idle
+
+# ---------- 受击闪白 ----------
+func _flash_enemy_hit() -> void:
+	var tw := create_tween()
+	tw.tween_property(enemy_sprite, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
+	tw.tween_property(enemy_sprite, "modulate", Color(1, 1, 1, 1), 0.12)
+
+func _flash_player_hit() -> void:
+	var tw := create_tween()
+	tw.tween_property(player_sprite, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
+	tw.tween_property(player_sprite, "modulate", Color(1, 1, 1, 1), 0.12)
+
+# ---------- 抖动 ----------
 func _shake_enemy() -> void:
 	var orig := enemy_sprite.position
 	var tw := create_tween()
-	for n in range(4):
-		tw.tween_property(enemy_sprite, "position", orig + Vector2(randf_range(-4, 4), randf_range(-3, 3)), 0.03)
+	for n in range(5):
+		var offset := Vector2(randf_range(-6, 6), randf_range(-4, 4))
+		tw.tween_property(enemy_sprite, "position", orig + offset, 0.025)
 	tw.tween_property(enemy_sprite, "position", orig, 0.04)
 
 func _shake_player() -> void:
 	var orig := player_sprite.position
 	var tw := create_tween()
-	for n in range(4):
-		tw.tween_property(player_sprite, "position", orig + Vector2(randf_range(-4, 4), randf_range(-3, 3)), 0.03)
+	for n in range(5):
+		var offset := Vector2(randf_range(-6, 6), randf_range(-4, 4))
+		tw.tween_property(player_sprite, "position", orig + offset, 0.025)
 	tw.tween_property(player_sprite, "position", orig, 0.04)
 
-func _spawn_slash() -> void:
+# ---------- 斩击弧光特效(玩家攻击时) ----------
+func _spawn_slash_arc() -> void:
+	# 主斩击弧线
 	var slash := Label.new()
-	slash.text = "✦"
-	slash.add_theme_font_size_override("font_size", 32)
+	slash.text = "⚔"
+	slash.add_theme_font_size_override("font_size", 48)
 	slash.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
-	slash.position = Vector2(effect_layer.size.x * 0.5 - 10, effect_layer.size.y * 0.4)
-	slash.modulate.a = 0.9
+	slash.position = Vector2(effect_layer.size.x * 0.55, effect_layer.size.y * 0.3)
+	slash.pivot_offset = Vector2(24, 24)
+	slash.modulate.a = 0.0
 	effect_layer.add_child(slash)
 	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(slash, "scale", Vector2(2.0, 2.0), 0.2)
-	tw.tween_property(slash, "modulate:a", 0.0, 0.35)
-	tw.tween_property(slash, "rotation", 0.8, 0.35)
-	tw.set_parallel(false)
+	tw.tween_property(slash, "modulate:a", 1.0, 0.04)
+	tw.parallel().tween_property(slash, "rotation", 1.2, 0.15).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(slash, "scale", Vector2(1.8, 1.8), 0.15).set_ease(Tween.EASE_OUT)
+	tw.tween_property(slash, "modulate:a", 0.0, 0.2)
 	tw.tween_callback(slash.queue_free)
+	# 辅助斩痕
+	var slash2 := Label.new()
+	slash2.text = "╲"
+	slash2.add_theme_font_size_override("font_size", 64)
+	slash2.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5, 0.8))
+	slash2.position = Vector2(effect_layer.size.x * 0.52, effect_layer.size.y * 0.25)
+	slash2.pivot_offset = Vector2(16, 32)
+	effect_layer.add_child(slash2)
+	var tw2 := create_tween()
+	tw2.tween_property(slash2, "scale", Vector2(2.5, 2.5), 0.12).set_ease(Tween.EASE_OUT)
+	tw2.parallel().tween_property(slash2, "modulate:a", 0.0, 0.3)
+	tw2.tween_callback(slash2.queue_free)
+
+# ---------- 命中火花(玩家攻击时) ----------
+func _spawn_hit_sparks() -> void:
+	var center := Vector2(effect_layer.size.x * 0.6, effect_layer.size.y * 0.4)
+	for i in range(6):
+		var spark := Label.new()
+		spark.text = ["✦", "✧", "◆", "•"][randi() % 4]
+		spark.add_theme_font_size_override("font_size", randi_range(12, 22))
+		spark.add_theme_color_override("font_color", [ThemeConfig.ACCENT_GOLD, ThemeConfig.PRIMARY, Color(1, 0.8, 0.3)][randi() % 3])
+		spark.position = center
+		spark.modulate.a = 1.0
+		effect_layer.add_child(spark)
+		var angle := randf() * TAU
+		var dist := randf_range(30, 70)
+		var target_pos := center + Vector2(cos(angle) * dist, sin(angle) * dist)
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(spark, "position", target_pos, 0.25).set_ease(Tween.EASE_OUT)
+		tw.tween_property(spark, "modulate:a", 0.0, 0.35)
+		tw.tween_property(spark, "scale", Vector2(0.3, 0.3), 0.35)
+		tw.set_parallel(false)
+		tw.tween_callback(spark.queue_free)
+
+# ---------- 敌人技能特效(魔法圈+冲击波) ----------
+func _spawn_enemy_skill_effect() -> void:
+	# 魔法圈
+	var circle := Label.new()
+	circle.text = "◎"
+	circle.add_theme_font_size_override("font_size", 56)
+	circle.add_theme_color_override("font_color", Color(0.9, 0.2, 0.3, 0.9))
+	circle.position = Vector2(effect_layer.size.x * 0.25, effect_layer.size.y * 0.35)
+	circle.pivot_offset = Vector2(28, 28)
+	circle.scale = Vector2(0.3, 0.3)
+	effect_layer.add_child(circle)
+	var tw := create_tween()
+	tw.tween_property(circle, "scale", Vector2(2.2, 2.2), 0.2).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(circle, "rotation", TAU, 0.4)
+	tw.parallel().tween_property(circle, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(circle.queue_free)
+	# 冲击能量球
+	for i in range(4):
+		var orb := Label.new()
+		orb.text = ["◆", "★", "▲", "●"][i]
+		orb.add_theme_font_size_override("font_size", randi_range(16, 28))
+		orb.add_theme_color_override("font_color", Color(1.0, 0.3, 0.4, 0.85))
+		var start_pos := Vector2(effect_layer.size.x * 0.6, effect_layer.size.y * 0.4)
+		var end_pos := Vector2(effect_layer.size.x * 0.2, effect_layer.size.y * (0.3 + randf() * 0.3))
+		orb.position = start_pos
+		effect_layer.add_child(orb)
+		var tw2 := create_tween()
+		tw2.tween_interval(i * 0.04)
+		tw2.tween_property(orb, "position", end_pos, 0.18).set_ease(Tween.EASE_OUT)
+		tw2.parallel().tween_property(orb, "scale", Vector2(1.5, 1.5), 0.18)
+		tw2.tween_property(orb, "modulate:a", 0.0, 0.15)
+		tw2.tween_callback(orb.queue_free)
 
 # ==================== 标签切换 ====================
 func _switch_tab(t: int) -> void:
