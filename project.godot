@@ -52,4 +52,4 @@ common/enable_pause_aware_picking=true
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.015, 0.02, 0.045, 1)
+environment/defaults/default_clear_color=Color(0.96, 0.94, 0.91, 1)

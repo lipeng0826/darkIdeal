@@ -33,7 +33,7 @@ theme_override_constants/separation = 0
 
 [node name="TopBar" type="PanelContainer" parent="SafeArea/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 50)
+custom_minimum_size = Vector2(0, 48)
 
 [node name="Margin" type="MarginContainer" parent="SafeArea/VBox/TopBar"]
 layout_mode = 2
@@ -47,7 +47,7 @@ layout_mode = 2
 
 [node name="LevelLabel" type="Label" parent="SafeArea/VBox/TopBar/Margin/HBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 14
 vertical_alignment = 1
 text = "Lv.1"
 
@@ -93,175 +93,191 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="EnemySection" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+[node name="ZoneBanner" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
-anchor_left = 0.03
-anchor_top = 0.01
-anchor_right = 0.97
-anchor_bottom = 0.5
+anchor_left = 0.05
+anchor_top = 0.0
+anchor_right = 0.95
+anchor_bottom = 0.05
+custom_minimum_size = Vector2(0, 32)
 
-[node name="EnemyMargin" type="MarginContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection"]
+[node name="ZoneLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/ZoneBanner"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_bottom = 12
-
-[node name="EnemyVBox" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="ZoneLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
+vertical_alignment = 1
 text = "黑暗森林"
 
-[node name="EnemySprite" type="Panel" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
-layout_mode = 2
-size_flags_vertical = 3
-custom_minimum_size = Vector2(0, 130)
+[node name="BattleArena" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.02
+anchor_top = 0.06
+anchor_right = 0.98
+anchor_bottom = 0.52
 
-[node name="EnemyIcon" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/EnemySprite"]
+[node name="ZoneBG" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+modulate = Color(1, 1, 1, 0.15)
+mouse_filter = 2
 stretch_mode = 6
 expand_mode = 1
 
-[node name="EnemyName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
+[node name="PlayerSprite" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchor_left = 0.02
+anchor_top = 0.1
+anchor_right = 0.38
+anchor_bottom = 0.9
+mouse_filter = 2
+stretch_mode = 5
+expand_mode = 1
 
-[node name="HPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox"]
+[node name="VSLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchor_left = 0.4
+anchor_top = 0.35
+anchor_right = 0.6
+anchor_bottom = 0.65
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "VS"
+
+[node name="EnemySprite" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchor_left = 0.62
+anchor_top = 0.1
+anchor_right = 0.98
+anchor_bottom = 0.9
+mouse_filter = 2
+stretch_mode = 5
+expand_mode = 1
+
+[node name="EffectLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="HPSection" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.53
+anchor_right = 0.95
+anchor_bottom = 0.66
+theme_override_constants/separation = 6
+
+[node name="PlayerHPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="EnemyHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/HPRow"]
+[node name="PlayerName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+theme_override_font_sizes/font_size = 10
+vertical_alignment = 1
+text = "玩家"
+
+[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(0, 16)
 max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="EnemyHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/EnemySection/EnemyMargin/EnemyVBox/HPRow"]
+[node name="PlayerHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 9
+vertical_alignment = 1
+
+[node name="EnemyHPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnemyName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
 theme_override_font_sizes/font_size = 10
 vertical_alignment = 1
 
-[node name="PlayerSection" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
-layout_mode = 1
-anchor_left = 0.03
-anchor_top = 0.52
-anchor_right = 0.97
-anchor_bottom = 0.72
-
-[node name="PlayerMargin" type="MarginContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection"]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_bottom = 10
-
-[node name="PlayerVBox" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="Row1" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
-layout_mode = 2
-
-[node name="PlayerName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row1"]
+[node name="EnemyHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 12
-text = "暗影行者"
-
-[node name="HPText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row1"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-
-[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 14)
+custom_minimum_size = Vector2(0, 16)
 max_value = 100.0
 value = 100.0
 show_percentage = false
 
-[node name="Row2" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="ExpText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+[node name="EnemyHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 9
+vertical_alignment = 1
 
-[node name="ExpBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+[node name="ExpRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ExpText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+theme_override_font_sizes/font_size = 9
+vertical_alignment = 1
+text = "EXP"
+
+[node name="ExpBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 8)
+custom_minimum_size = Vector2(0, 10)
 max_value = 100.0
 show_percentage = false
 
-[node name="ExpPct" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/Row2"]
+[node name="ExpPct" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 9
-
-[node name="StatsBar" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Atk" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-
-[node name="Def" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-
-[node name="Crit" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/PlayerSection/PlayerMargin/PlayerVBox/StatsBar"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
+vertical_alignment = 1
 
 [node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
-anchor_left = 0.03
-anchor_top = 0.74
-anchor_right = 0.97
-anchor_bottom = 0.84
+anchor_left = 0.05
+anchor_top = 0.67
+anchor_right = 0.95
+anchor_bottom = 0.75
 theme_override_constants/separation = 8
 
 [node name="BossBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 44)
-theme_override_font_sizes/font_size = 13
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 12
 text = "挑战Boss"
 
 [node name="PrevZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(38, 44)
+custom_minimum_size = Vector2(36, 38)
 theme_override_font_sizes/font_size = 14
 text = "◀"
 
 [node name="ZoneBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 44)
-theme_override_font_sizes/font_size = 12
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 
 [node name="NextZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(38, 44)
+custom_minimum_size = Vector2(36, 38)
 theme_override_font_sizes/font_size = 14
 text = "▶"
 
 [node name="BattleLog" type="RichTextLabel" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
 anchor_left = 0.03
-anchor_top = 0.86
+anchor_top = 0.77
 anchor_right = 0.97
 anchor_bottom = 1.0
 theme_override_font_sizes/normal_font_size = 10
@@ -339,11 +355,11 @@ theme_override_constants/margin_bottom = 12
 
 [node name="ItemList" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Scroll/ListContainer/ListMargin"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="BottomNav" type="PanelContainer" parent="SafeArea/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 56)
 
 [node name="NavRow" type="HBoxContainer" parent="SafeArea/VBox/BottomNav"]
 layout_mode = 2
@@ -354,11 +370,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
-[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
+[node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-text = "⚔"
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+stretch_mode = 5
+expand_mode = 3
 
 [node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
 layout_mode = 2
@@ -371,11 +388,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
-[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
+[node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-text = "🛡"
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+stretch_mode = 5
+expand_mode = 3
 
 [node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
 layout_mode = 2
@@ -388,11 +406,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
-[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
+[node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-text = "🏰"
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+stretch_mode = 5
+expand_mode = 3
 
 [node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
 layout_mode = 2
@@ -405,11 +424,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
-[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
+[node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-text = "⚒"
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+stretch_mode = 5
+expand_mode = 3
 
 [node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
 layout_mode = 2
@@ -422,11 +442,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
-[node name="Icon" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
+[node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-horizontal_alignment = 1
-text = "📜"
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+stretch_mode = 5
+expand_mode = 3
 
 [node name="Text" type="Label" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
 layout_mode = 2
