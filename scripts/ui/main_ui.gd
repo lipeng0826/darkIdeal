@@ -67,6 +67,7 @@ var _prev_php := 0
 var _atmo_time := 0.0
 var _breath_phase := 0.0
 var _particles: Array = []
+var _zone_bg: TextureRect = null
 
 # ==================== 色彩方案(产品级暗黑RPG) ====================
 const BG_DEEP := Color(0.02, 0.025, 0.055)       # 最深底色
@@ -113,6 +114,15 @@ func _ready() -> void:
 	add_child(craft_system)
 	quest_system = QuestSystem.new()
 	add_child(quest_system)
+	# 创建区域背景层(半透明感觉)
+	_zone_bg = TextureRect.new()
+	_zone_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_zone_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_zone_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_zone_bg.modulate = Color(1, 1, 1, 0.08)
+	_zone_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle_view.add_child(_zone_bg)
+	battle_view.move_child(_zone_bg, 0)
 	_apply_theme()
 	_connect_all()
 	_create_particles()
@@ -544,6 +554,12 @@ func _refresh_zone() -> void:
 	var z: Dictionary = DataManager.ZONES[zi]
 	zone_label.text = "━━ %s ━━" % z["name"]
 	zone_btn.text = "%s Lv.%d" % [z["name"], z["min_lv"]]
+	# 更新区域背景图
+	if _zone_bg:
+		var bg_path: String = ZONE_BG_TEXTURES[zi % ZONE_BG_TEXTURES.size()]
+		var bg_tex: Texture2D = load(bg_path)
+		if bg_tex:
+			_zone_bg.texture = bg_tex
 
 # ==================== 面板构建 ====================
 func _build_equipment() -> void:
