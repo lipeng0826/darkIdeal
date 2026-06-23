@@ -19,6 +19,7 @@ signal show_offline_rewards(rewards: Dictionary)
 signal wave_cleared(rewards: Dictionary)
 signal combat_player_hit(enemy_id: int)
 signal combat_enemy_hit(enemy_id: int)
+signal damage_popup(target_id: int, amount: int, kind: String)
 
 # ==================== 子系统引用 ====================
 var skill_system: SkillSystem
@@ -51,6 +52,8 @@ var current_target_id := -1
 const PLAYER_ATTACK_SPEED := 1.2  # 秒
 const ENEMY_ATTACK_SPEED_MULT := 2.5  # 怪物攻速约为玩家的 1/2.5
 const WAVE_SKILL_DMG_FACTOR := 0.25  # 波次战中技能伤害系数（避免秒杀）
+const BOSS_POPUP_ID := 9999
+const PLAYER_POPUP_ID := -1
 const DROP_RATE := 0.15  # 装备掉率
 const MATERIAL_DROP_RATE := 0.3  # 材料掉率
 
@@ -162,6 +165,7 @@ func _player_attack_enemy() -> void:
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
 	combat_player_hit.emit(int(target["id"]))
+	damage_popup.emit(int(target["id"]), dmg, "crit" if is_crit else "normal")
 
 func _enemy_attack_player(enemy: Dictionary = {}) -> void:
 	var atk_enemy: Dictionary = enemy if not enemy.is_empty() else current_enemy
@@ -178,6 +182,7 @@ func _enemy_attack_player(enemy: Dictionary = {}) -> void:
 	AudioManager.play_sfx("enemy_hit")
 	battle_log.emit("%s 对你造成 %d 伤害" % [atk_enemy["name"], dmg], Color(1.0, 0.3, 0.3))
 	combat_enemy_hit.emit(int(atk_enemy.get("id", -1)))
+	damage_popup.emit(PLAYER_POPUP_ID, dmg, "taken")
 	if player_hp <= 0:
 		if skill_system.check_immortal():
 			player_hp = int(combat["max_hp"] * 0.2)
@@ -191,6 +196,8 @@ func apply_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
 		dmg = maxi(1, int(dmg * WAVE_SKILL_DMG_FACTOR))
 	if is_boss_fight:
 		enemy_hp -= dmg
+		battle_log.emit("✦ %s: %d 伤害" % [skill_name, dmg], color)
+		damage_popup.emit(BOSS_POPUP_ID, dmg, "skill")
 		if enemy_hp <= 0:
 			_on_boss_killed()
 		return
@@ -201,12 +208,29 @@ func apply_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
 	combat_player_hit.emit(int(target["id"]))
+	damage_popup.emit(int(target["id"]), dmg, "skill")
+
+func apply_skill_aoe_damage(dmg: int, skill_name: String, color: Color) -> void:
+	if is_boss_fight:
+		apply_skill_damage(dmg, skill_name, color)
+		return
+	var scaled: int = maxi(1, int(dmg * WAVE_SKILL_DMG_FACTOR))
+	var enemies: Array = battle_wave.get_active_enemies()
+	if enemies.is_empty():
+		return
+	for enemy in enemies:
+		battle_wave.damage_enemy(int(enemy["id"]), scaled)
+		combat_player_hit.emit(int(enemy["id"]))
+		damage_popup.emit(int(enemy["id"]), scaled, "skill")
+	battle_log.emit("✦ %s: 横扫 %d 名敌人，各 %d 伤害" % [skill_name, enemies.size(), scaled], color)
+	_sync_front_target()
 
 func apply_dot_damage(dmg: int) -> void:
 	if not is_boss_fight:
 		dmg = maxi(1, int(dmg * WAVE_SKILL_DMG_FACTOR))
 	if is_boss_fight:
 		enemy_hp -= dmg
+		damage_popup.emit(BOSS_POPUP_ID, dmg, "skill")
 		if enemy_hp <= 0:
 			_on_boss_killed()
 		return
@@ -216,6 +240,7 @@ func apply_dot_damage(dmg: int) -> void:
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
 	combat_player_hit.emit(int(target["id"]))
+	damage_popup.emit(int(target["id"]), dmg, "skill")
 
 func _on_wave_cleared(killed_enemies: Array) -> void:
 	var rewards := _aggregate_wave_rewards(killed_enemies)
@@ -378,6 +403,7 @@ func _player_attack_boss() -> void:
 	
 	AudioManager.play_sfx("hit" if not is_crit else "crit")
 	combat_player_hit.emit(-1)
+	damage_popup.emit(BOSS_POPUP_ID, dmg, "crit" if is_crit else "normal")
 	
 	if enemy_hp <= 0:
 		_on_boss_killed()
@@ -398,6 +424,7 @@ func _boss_attack_player() -> void:
 	player_hp -= dmg
 	AudioManager.play_sfx("enemy_hit")
 	combat_enemy_hit.emit(-1)
+	damage_popup.emit(PLAYER_POPUP_ID, dmg, "taken")
 	
 	if player_hp <= 0:
 		if skill_system.check_immortal():

@@ -1,5 +1,5 @@
 9cad1ddce9e5a63143ba340c9520626b
-::res://::1782198077
+::res://::1782205117
 icon.svg::CompressedTexture2D::4186297319879463765::1782127132::1782127492::1::::<><><>0<>0<>18fc5b44129d6112c518d69e291b973e<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
 README.md::TextFile::-1::1782132540::0::1::::<><><>0<>0<><>::
 ::res://assets/::1782198077
@@ -60,7 +60,7 @@ overlay_hammer_v2.png::CompressedTexture2D::3051272717266223958::1782184844::178
 overlay_helmet_v2.png::CompressedTexture2D::1812516632981057240::1782184844::1782184854::1::::<><><>0<>0<>5087f058fe40c27e3f5710bc59c066ab<>res://.godot/imported/overlay_helmet_v2.png-43fe88a264c5366034d986a50ad34477.ctex::
 overlay_staff_v2.png::CompressedTexture2D::8334859899761065362::1782184844::1782184854::1::::<><><>0<>0<>80b298e25dd2e8125e15cba7f5a2b711<>res://.godot/imported/overlay_staff_v2.png-44e85e5e675298378630641ccf4105e7.ctex::
 overlay_sword_v2.png::CompressedTexture2D::7235182213298589028::1782184844::1782184854::1::::<><><>0<>0<>8c858dc52176181d2b0b2b923c6570a6<>res://.godot/imported/overlay_sword_v2.png-02143bceb464469f14bc06083ad35ef8.ctex::
-::res://assets/generated/maps/::1782200290
+::res://assets/generated/maps/::1782200403
 world_map_bg.png::CompressedTexture2D::1537195423826600650::1782200209::1782200403::1::::<><><>0<>0<>7552bd5daf7118f6247c8fef6f3dbb38<>res://.godot/imported/world_map_bg.png-1d008b4272f9e47b86d4cf8fc9a6d9df.ctex::
 ::res://assets/generated/materials/::1782133412
 ::res://assets/generated/pets/::1782198354
@@ -105,7 +105,7 @@ hero_iter_08.png::CompressedTexture2D::3439729023871829133::1782188524::17821885
 hero_iter_10_attack.png::CompressedTexture2D::6624796538806088456::1782188524::1782188597::1::::<><><>0<>0<>2c5f354e8cf4874fc61714a05fa7cc2a<>res://.godot/imported/hero_iter_10_attack.png-efad55993fed6c44839910427e952f29.ctex::
 ::res://assets/textures/::1782126572
 ::res://assets/ui/::1782135204
-::res://assets/ui/icons/::1782200290
+::res://assets/ui/icons/::1782200403
 nav_adventure.png::CompressedTexture2D::1385520653393019546::1782134288::1782135526::1::::<><><>0<>0<>58f1a2612f9cf325f31b6d222ae79c65<>res://.godot/imported/nav_adventure.png-deefbd6ddba466d47c7af73488f851de.ctex::
 nav_adventure_active.png::CompressedTexture2D::8336219681325417121::1782199983::1782200403::1::::<><><>0<>0<>29286960344d5c368e123a6ce05f3b80<>res://.godot/imported/nav_adventure_active.png-670b8b62ad6c2f15d9859ad1c35f2832.ctex::
 nav_battle.png::CompressedTexture2D::6797742689153591776::1782134223::1782135526::1::::<><><>0<>0<>cea2b9e549133da860404adad84dc5cb<>res://.godot/imported/nav_battle.png-a0188f7b8a92157b83f9c543ef361269.ctex::
@@ -121,8 +121,9 @@ abyss_v2.png::CompressedTexture2D::8288916761864910796::1782135216::1782135525::
 forest_v2.png::CompressedTexture2D::6647455043150094738::1782134594::1782135525::1::::<><><>0<>0<>7a84098c72e999e693de6b0f7a1d6471<>res://.godot/imported/forest_v2.png-a0234c2e384ec69891145e8a77059050.ctex::
 tomb_v2.png::CompressedTexture2D::5614893132165026986::1782135185::1782135525::1::::<><><>0<>0<>0f38fd79524d4630e35ed368764d76d9<>res://.godot/imported/tomb_v2.png-6c7881999c8db33397ed0105ea0d018f.ctex::
 ::res://css/::1782129183
-::res://docs/::1782183259
+::res://docs/::1782202464
 GAME_FEATURES.md::TextFile::-1::1782183259::0::1::::<><><>0<>0<><>::
+OPTIMIZATION_PLAN.md::TextFile::-1::1782202670::0::1::::<><><>0<>0<><>::
 ::res://resources/::1782134193
 ::res://resources/shaders/::1782127491
 dark_glow.gdshader::Shader::3797764223701414379::1782126942::0::1::::<><><>0<>0<><>::
@@ -130,13 +131,13 @@ item_glow.gdshader::Shader::4625291370929008952::1782126954::0::1::::<><><>0<>0<
 particle_effect.gdshader::Shader::5215513470133638468::1782126965::0::1::::<><><>0<>0<><>::
 ::res://resources/themes/::1782126572
 ::res://scenes/::1782127014
-main.tscn::PackedScene::-1::1782194314::0::1::::<><><>0<>0<><>::res://scripts/ui/main_ui.gd<>res://scripts/ui/player_visual.gd<>res://scripts/ui/loot_dialog.gd<>res://scripts/ui/battle_effects.gd
+main.tscn::PackedScene::-1::1782200719::0::1::::<><><>0<>0<><>::res://scripts/ui/main_ui.gd<>res://scripts/ui/player_visual.gd<>res://scripts/ui/loot_dialog.gd<>res://scripts/ui/battle_effects.gd
 ::res://scripts/::1782126572
 ::res://scripts/autoload/::1782127491
 audio_manager.gd::GDScript::2787517484389363252::1782126864::0::1::::<>Node<><>0<>0<><>::
 data_manager.gd::GDScript::4176396539451668284::1782194077::0::1::::<>Node<><>0<>0<><>::
-game_manager.gd::GDScript::8225238519795066642::1782196012::0::1::::<>Node<><>0<>0<><>::
-save_manager.gd::GDScript::189160408960656846::1782194077::0::1::::<>Node<><>0<>0<><>::
+game_manager.gd::GDScript::8225238519795066642::1782205005::0::1::::<>Node<><>0<>0<><>::
+save_manager.gd::GDScript::189160408960656846::1782201386::0::1::::<>Node<><>0<>0<><>::
 ::res://scripts/systems/::1782183346
 achievement_system.gd::GDScript::2711867148619376330::1782128922::0::1::::AchievementSystem<>Node<><>0<>0<><>::
 battle_wave_controller.gd::GDScript::7660139569357433313::1782196009::0::1::::BattleWaveController<>Node<><>0<>0<><>::
@@ -144,23 +145,31 @@ craft_system.gd::GDScript::6130764776309945338::1782126888::0::1::::CraftSystem<
 enhance_system.gd::GDScript::4229614170139532859::1782180043::0::1::::EnhanceSystem<>Node<><>0<>0<><>::
 pet_system.gd::GDScript::7668726320122994325::1782180089::0::1::::PetSystem<>Node<><>0<>0<><>::
 quest_system.gd::GDScript::8103491570753732755::1782127597::0::1::::QuestSystem<>Node<><>0<>0<><>::
-skill_system.gd::GDScript::1231089175250577871::1782193644::0::1::::SkillSystem<>Node<><>0<>0<><>::
+skill_system.gd::GDScript::1231089175250577871::1782202579::0::1::::SkillSystem<>Node<><>0<>0<><>::
 tower_system.gd::GDScript::2690455397684228928::1782129103::0::1::::TowerSystem<>Node<><>0<>0<><>::
-::res://scripts/ui/::1782200243
-adventure_map_view.gd::GDScript::480702982750574407::1782194550::0::1::::AdventureMapView<>Control<><>0<>0<><>::
-asset_registry.gd::GDScript::7139946858614471770::1782199025::0::1::::AssetRegistry<>RefCounted<><>0<>0<><>::
+::res://scripts/ui/::1782204924
+adventure_map_view.gd::GDScript::480702982750574407::1782200435::0::1::::AdventureMapView<>Control<><>0<>0<><>::
+asset_registry.gd::GDScript::7139946858614471770::1782201387::0::1::::AssetRegistry<>RefCounted<><>0<>0<><>::
 battle_arena_field.gd::GDScript::8324452542960387700::1782199011::0::1::::BattleArenaField<>Control<><>0<>0<><>::
-battle_effects.gd::GDScript::140944495140455299::1782127154::0::1::::BattleEffects<>Node2D<><>0<>0<><>::
+battle_effects.gd::GDScript::140944495140455299::1782201420::0::1::::BattleEffects<>Node2D<><>0<>0<><>::
 battle_enemy_unit.gd::GDScript::5548388205017079046::1782197727::0::1::::BattleEnemyUnit<>Control<><>0<>0<><>::
 battle_layout.gd::GDScript::6700373597193203438::1782197701::0::1::::BattleLayout<>RefCounted<><>0<>0<><>::
+battle_skill_bar.gd::GDScript::7969843398659024174::1782202615::0::1::::BattleSkillBar<>Control<><>0<>0<><>::
+damage_popup_layer.gd::GDScript::8269605384460330405::1782202467::0::1::::DamagePopupLayer<>Control<><>0<>0<><>::
 enemy_renderer.gd::GDScript::4934150918245542508::1782127192::0::1::::EnemyRenderer<>Node2D<><>0<>0<><>::
 equip_compare_dialog.gd::GDScript::1082082384346757746::1782194099::0::1::::EquipCompareDialog<>Control<><>0<>0<><>::
 equip_item_slot.gd::GDScript::7492287812120791214::1782193778::0::1::::EquipItemSlot<>PanelContainer<><>0<>0<><>::
 equip_tooltip.gd::GDScript::9172065901409000111::1782194099::0::1::::EquipTooltip<>PanelContainer<><>0<>0<><>::
 loot_dialog.gd::GDScript::5357864076681457325::1782194088::0::1::::LootDialog<>Control<><>0<>0<><>::
-main_ui.gd::GDScript::1266304709963631021::1782200376::0::1::::<>Control<><>0<>0<><>::
-nav_tab_button.gd::GDScript::4011668915097405568::1782199903::0::1::::NavTabButton<>Control<><>0<>0<><>::
+main_ui.gd::GDScript::1266304709963631021::1782202672::0::1::::<>Control<><>0<>0<><>::
+nav_tab_button.gd::GDScript::4011668915097405568::1782200711::0::1::::NavTabButton<>VBoxContainer<><>0<>0<><>::
 player_visual.gd::GDScript::6687738548129510946::1782197742::0::1::::PlayerVisual<>Control<><>0<>0<><>::
 theme_config.gd::GDScript::2023006579546082917::1782200309::0::1::::ThemeConfig<>RefCounted<><>0<>0<><>::
 ::res://shaders/::1782180152
 chroma_key.gdshader::Shader::4890384987328217568::1782179355::0::1::::<><><>0<>0<><>::
+::res://参考图/::1782205156
+image copy 2.png::CompressedTexture2D::7753378626636713474::1782205143::1782205230::1::::<><><>0<>0<>9333eaa303d0d23308b75385fc035d6d<>res://.godot/imported/image copy 2.png-16324c22551e8b4ee0c0fb562bef6a9d.ctex::
+image copy 3.png::CompressedTexture2D::5998676236687876394::1782205149::1782205230::1::::<><><>0<>0<>e4c07d6b47b944700f9ad87f874b9e9a<>res://.godot/imported/image copy 3.png-d638d6c59947f7a14cbf196e848ed3ef.ctex::
+image copy 4.png::CompressedTexture2D::5908617960018506478::1782205156::1782205230::1::::<><><>0<>0<>97c01f87d58135eecc8c8e4973499fc0<>res://.godot/imported/image copy 4.png-2a0afd62dd4faba43a793272f068606e.ctex::
+image copy.png::CompressedTexture2D::6535407795852565626::1782205134::1782205230::1::::<><><>0<>0<>f848095d301c6d48616916c58ac10431<>res://.godot/imported/image copy.png-46a9938d49f1013e70c1870ba7a793bd.ctex::
+image.png::CompressedTexture2D::8833018160955323000::1782205120::1782205230::1::::<><><>0<>0<>399621a14935415defc4c1ba81b577c0<>res://.godot/imported/image.png-bd28b3ec6fb4f52281639d89a576bc70.ctex::

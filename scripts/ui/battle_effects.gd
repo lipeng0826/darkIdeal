@@ -50,6 +50,34 @@ func spawn_crit_effect(pos: Vector2) -> void:
 			"gravity": 0.0,
 		})
 
+## 弧形横扫粒子波
+func spawn_aoe_wave(from_pos: Vector2, to_pos: Vector2, color: Color) -> void:
+	var steps := 14
+	for i in range(steps):
+		var t: float = float(i) / float(maxi(1, steps - 1))
+		var pos: Vector2 = from_pos.lerp(to_pos, t)
+		for _j in range(4):
+			var angle := randf_range(-0.65, 0.15)
+			var speed := randf_range(120.0, 260.0)
+			particles.append({
+				"pos": pos + Vector2(0, randf_range(-18, 18)),
+				"vel": Vector2(cos(angle), sin(angle)) * speed,
+				"color": color,
+				"life": 0.75,
+				"size": randf_range(4.0, 9.0),
+				"gravity": 40.0,
+			})
+	for i in range(10):
+		var angle := (float(i) / 10.0) * TAU
+		particles.append({
+			"pos": from_pos.lerp(to_pos, 0.5),
+			"vel": Vector2(cos(angle), sin(angle)) * randf_range(80.0, 160.0),
+			"color": Color(0.9, 0.95, 1.0, 0.9),
+			"life": 0.55,
+			"size": randf_range(2.0, 5.0),
+			"gravity": 0.0,
+		})
+
 ## 生成Boss出场特效
 func spawn_boss_entrance(pos: Vector2) -> void:
 	for i in range(30):

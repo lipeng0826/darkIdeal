@@ -73,9 +73,13 @@ var _spawn_queue: Array = []
 var _spawn_delay := 0.0
 var _player_atk_anim_playing := false
 var _wave_label: Label
+var _stage_info_label: Label
+var _left_hud_stats_label: Label
 var _arena_polish_done := false
 var _equip_tooltip: EquipTooltip
 var _equip_compare: EquipCompareDialog
+var _dmg_popups: DamagePopupLayer
+var _skill_bar: BattleSkillBar
 const SPAWN_STAGGER := 0.35
 
 func _get_player_sprite() -> TextureRect:
@@ -154,6 +158,7 @@ func _connect_battle() -> void:
 	GameManager.skill_system.skill_cast.connect(_on_skill_cast)
 	GameManager.combat_player_hit.connect(_on_combat_player_hit)
 	GameManager.combat_enemy_hit.connect(_on_combat_enemy_hit)
+	GameManager.damage_popup.connect(_on_damage_popup)
 
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded:
@@ -170,21 +175,27 @@ func _process(delta: float) -> void:
 	else:
 		$SafeArea.position = Vector2.ZERO
 
-# ==================== 主题应用(温暖二次元风) ====================
+# ==================== 主题应用(暗黑魔幻风) ====================
 func _apply_theme() -> void:
-	# 大背景 - 米白
+	# 大背景
 	var bgs := StyleBoxFlat.new()
 	bgs.bg_color = ThemeConfig.BG_BASE
 	bg_panel.add_theme_stylebox_override("panel", bgs)
 
-	# 顶栏 - 浅奶油色+底部微影
+	# 顶栏 - 暗色金属条
 	var ts := ThemeConfig.make_header_bg()
 	top_bar.add_theme_stylebox_override("panel", ts)
-	level_label.add_theme_color_override("font_color", ThemeConfig.PRIMARY)
+	level_label.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+	level_label.add_theme_font_size_override("font_size", 15)
+	level_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	level_label.add_theme_constant_override("shadow_offset_x", 1)
+	level_label.add_theme_constant_override("shadow_offset_y", 1)
 	gold_icon.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
-	gold_label.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
+	gold_label.add_theme_color_override("font_color", ThemeConfig.TXT_ON_DARK)
 	gem_icon.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
-	gems_label.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
+	gems_label.add_theme_color_override("font_color", ThemeConfig.TXT_ON_DARK)
+	gold_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+	gems_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
 
 	# 区域横幅 - 暗色奇幻标题条
 	var zbs := StyleBoxFlat.new()
@@ -199,7 +210,7 @@ func _apply_theme() -> void:
 	zbs.shadow_size = 4
 	zbs.shadow_offset = Vector2(0, 2)
 	zone_banner.add_theme_stylebox_override("panel", zbs)
-	zone_label.add_theme_color_override("font_color", ThemeConfig.TXT_ON_DARK)
+	zone_label.add_theme_color_override("font_color", Color(0.93, 0.88, 0.78))
 	zone_label.add_theme_font_size_override("font_size", 13)
 
 	# VS标签
@@ -219,9 +230,9 @@ func _apply_theme() -> void:
 	_style_btn_light(prev_zone_btn)
 	_style_btn_light(next_zone_btn)
 	boss_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
-	zone_btn.add_theme_color_override("font_color", Color(0.78, 0.88, 0.98))
-	prev_zone_btn.add_theme_color_override("font_color", Color(0.65, 0.70, 0.78))
-	next_zone_btn.add_theme_color_override("font_color", Color(0.65, 0.70, 0.78))
+	zone_btn.add_theme_color_override("font_color", Color(0.84, 0.90, 0.98))
+	prev_zone_btn.add_theme_color_override("font_color", Color(0.75, 0.80, 0.90))
+	next_zone_btn.add_theme_color_override("font_color", Color(0.75, 0.80, 0.90))
 
 	# 战斗日志 - 战场底部悬浮条
 	battle_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -252,8 +263,8 @@ func _apply_theme() -> void:
 	# 面板头
 	var ph := ThemeConfig.make_header_bg()
 	panel_header.add_theme_stylebox_override("panel", ph)
-	panel_title.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
-	panel_back_btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	panel_title.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+	panel_back_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_DARK)
 	_style_btn_light(panel_back_btn)
 
 	# 底部导航
@@ -332,6 +343,86 @@ func _setup_battle_arena_polish() -> void:
 	_wave_label.text = ""
 	battle_arena.add_child(_wave_label)
 
+	var stage_info := Panel.new()
+	stage_info.name = "StageInfoPanel"
+	stage_info.anchor_left = 0.73
+	stage_info.anchor_top = 0.11
+	stage_info.anchor_right = 0.985
+	stage_info.anchor_bottom = 0.33
+	stage_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sis := StyleBoxFlat.new()
+	sis.bg_color = Color(0.03, 0.03, 0.07, 0.78)
+	sis.corner_radius_top_left = 10
+	sis.corner_radius_top_right = 10
+	sis.corner_radius_bottom_left = 10
+	sis.corner_radius_bottom_right = 10
+	sis.border_width_left = 1
+	sis.border_width_right = 1
+	sis.border_width_top = 1
+	sis.border_width_bottom = 1
+	sis.border_color = Color(0.56, 0.44, 0.21, 0.65)
+	stage_info.add_theme_stylebox_override("panel", sis)
+	battle_arena.add_child(stage_info)
+	battle_arena.move_child(stage_info, _wave_label.get_index())
+
+	_stage_info_label = Label.new()
+	_stage_info_label.anchor_left = 0.06
+	_stage_info_label.anchor_top = 0.08
+	_stage_info_label.anchor_right = 0.94
+	_stage_info_label.anchor_bottom = 0.92
+	_stage_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_stage_info_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_stage_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stage_info_label.add_theme_font_size_override("font_size", 10)
+	_stage_info_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.80))
+	_stage_info_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	_stage_info_label.add_theme_constant_override("shadow_offset_x", 1)
+	_stage_info_label.add_theme_constant_override("shadow_offset_y", 1)
+	stage_info.add_child(_stage_info_label)
+
+	var left_hud := Panel.new()
+	left_hud.name = "LeftCombatHUD"
+	left_hud.anchor_left = 0.01
+	left_hud.anchor_top = 0.19
+	left_hud.anchor_right = 0.18
+	left_hud.anchor_bottom = 0.55
+	left_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lhs := StyleBoxFlat.new()
+	lhs.bg_color = Color(0.03, 0.03, 0.06, 0.72)
+	lhs.corner_radius_top_left = 10
+	lhs.corner_radius_top_right = 10
+	lhs.corner_radius_bottom_left = 10
+	lhs.corner_radius_bottom_right = 10
+	lhs.border_width_left = 1
+	lhs.border_width_right = 1
+	lhs.border_width_top = 1
+	lhs.border_width_bottom = 1
+	lhs.border_color = Color(0.56, 0.44, 0.21, 0.55)
+	left_hud.add_theme_stylebox_override("panel", lhs)
+	battle_arena.add_child(left_hud)
+
+	var left_hud_title := Label.new()
+	left_hud_title.anchor_left = 0.08
+	left_hud_title.anchor_top = 0.05
+	left_hud_title.anchor_right = 0.92
+	left_hud_title.anchor_bottom = 0.16
+	left_hud_title.text = "战斗属性"
+	left_hud_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	left_hud_title.add_theme_font_size_override("font_size", 10)
+	left_hud_title.add_theme_color_override("font_color", Color(0.95, 0.84, 0.55))
+	left_hud.add_child(left_hud_title)
+
+	_left_hud_stats_label = Label.new()
+	_left_hud_stats_label.anchor_left = 0.10
+	_left_hud_stats_label.anchor_top = 0.18
+	_left_hud_stats_label.anchor_right = 0.92
+	_left_hud_stats_label.anchor_bottom = 0.95
+	_left_hud_stats_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_left_hud_stats_label.text = "ATK: --\nDEF: --\nCRIT: --\nHP: --"
+	_left_hud_stats_label.add_theme_font_size_override("font_size", 9)
+	_left_hud_stats_label.add_theme_color_override("font_color", Color(0.86, 0.88, 0.93))
+	left_hud.add_child(_left_hud_stats_label)
+
 	var nameplate := Panel.new()
 	nameplate.name = "PlayerNameplate"
 	nameplate.anchor_left = 0.01
@@ -376,6 +467,38 @@ func _setup_battle_arena_polish() -> void:
 	log_back.add_theme_stylebox_override("panel", lbs)
 	battle_arena.add_child(log_back)
 	battle_arena.move_child(log_back, battle_log.get_index())
+
+	_dmg_popups = DamagePopupLayer.new()
+	_dmg_popups.name = "DamagePopups"
+	dmg_layer.add_child(_dmg_popups)
+
+	_skill_bar = BattleSkillBar.new()
+	_skill_bar.name = "SkillBar"
+	_skill_bar.anchor_left = 0.02
+	_skill_bar.anchor_top = 0.145
+	_skill_bar.anchor_right = 0.40
+	_skill_bar.anchor_bottom = 0.255
+	_skill_bar.offset_left = 0
+	_skill_bar.offset_top = 0
+	_skill_bar.offset_right = 0
+	_skill_bar.offset_bottom = 0
+	_skill_bar.z_index = 6
+	battle_arena.add_child(_skill_bar)
+
+	var right_rail := VBoxContainer.new()
+	right_rail.name = "RightQuickRail"
+	right_rail.anchor_left = 0.93
+	right_rail.anchor_top = 0.42
+	right_rail.anchor_right = 0.995
+	right_rail.anchor_bottom = 0.84
+	right_rail.alignment = BoxContainer.ALIGNMENT_END
+	right_rail.add_theme_constant_override("separation", 6)
+	battle_arena.add_child(right_rail)
+	right_rail.add_child(_make_quick_rail_btn("图", func(): _open_panel("冒险", ["世界地图", "深渊塔"], "世界地图")))
+	right_rail.add_child(_make_quick_rail_btn("技", func(): _open_panel("角色", ["装备", "技能", "天赋", "宠物"], "技能")))
+	right_rail.add_child(_make_quick_rail_btn("包", func(): _open_panel("角色", ["装备", "技能", "天赋", "宠物"], "装备")))
+	_update_stage_info()
+	_update_left_combat_hud()
 
 	var hp_section: VBoxContainer = battle_view.get_node("HPSection")
 	if hp_section and not hp_section.get_node_or_null("ExpBackdrop"):
@@ -455,12 +578,12 @@ func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
 
 func _style_btn_boss(btn: Button) -> void:
 	var n := StyleBoxFlat.new()
-	n.bg_color = Color(0.78, 0.24, 0.30)
+	n.bg_color = Color(0.66, 0.20, 0.16)
 	n.corner_radius_top_left = 18
 	n.corner_radius_top_right = 18
 	n.corner_radius_bottom_left = 18
 	n.corner_radius_bottom_right = 18
-	n.shadow_color = Color(0.4, 0.08, 0.12, 0.35)
+	n.shadow_color = Color(0.28, 0.08, 0.05, 0.45)
 	n.shadow_size = 4
 	n.shadow_offset = Vector2(0, 2)
 	n.content_margin_left = 18.0
@@ -469,15 +592,15 @@ func _style_btn_boss(btn: Button) -> void:
 	n.content_margin_bottom = 10.0
 	btn.add_theme_stylebox_override("normal", n)
 	var h := n.duplicate()
-	h.bg_color = Color(0.88, 0.32, 0.38)
+	h.bg_color = Color(0.78, 0.30, 0.24)
 	btn.add_theme_stylebox_override("hover", h)
 	var p := n.duplicate()
-	p.bg_color = Color(0.62, 0.16, 0.22)
+	p.bg_color = Color(0.48, 0.14, 0.10)
 	btn.add_theme_stylebox_override("pressed", p)
 
 func _style_btn_zone(btn: Button) -> void:
 	var n := StyleBoxFlat.new()
-	n.bg_color = Color(0.10, 0.12, 0.18, 0.88)
+	n.bg_color = Color(0.07, 0.09, 0.15, 0.92)
 	n.corner_radius_top_left = 16
 	n.corner_radius_top_right = 16
 	n.corner_radius_bottom_left = 16
@@ -486,17 +609,17 @@ func _style_btn_zone(btn: Button) -> void:
 	n.border_width_right = 1
 	n.border_width_top = 1
 	n.border_width_bottom = 1
-	n.border_color = Color(0.42, 0.55, 0.72, 0.55)
+	n.border_color = Color(0.62, 0.52, 0.30, 0.55)
 	n.content_margin_left = 14.0
 	n.content_margin_right = 14.0
 	n.content_margin_top = 8.0
 	n.content_margin_bottom = 8.0
 	btn.add_theme_stylebox_override("normal", n)
 	var h := n.duplicate()
-	h.bg_color = Color(0.14, 0.16, 0.24, 0.95)
+	h.bg_color = Color(0.15, 0.17, 0.25, 0.96)
 	btn.add_theme_stylebox_override("hover", h)
 	var p := n.duplicate()
-	p.bg_color = Color(0.08, 0.09, 0.14, 0.95)
+	p.bg_color = Color(0.05, 0.06, 0.11, 0.96)
 	btn.add_theme_stylebox_override("pressed", p)
 
 func _style_btn_primary(btn: Button) -> void:
@@ -521,22 +644,57 @@ func _style_btn_outline(btn: Button, color: Color) -> void:
 
 func _style_btn_light(btn: Button) -> void:
 	var n := StyleBoxFlat.new()
-	n.bg_color = Color(0.94, 0.92, 0.88, 0.6)
+	n.bg_color = Color(0.10, 0.11, 0.17, 0.84)
 	n.corner_radius_top_left = 12
 	n.corner_radius_top_right = 12
 	n.corner_radius_bottom_left = 12
 	n.corner_radius_bottom_right = 12
+	n.border_width_left = 1
+	n.border_width_right = 1
+	n.border_width_top = 1
+	n.border_width_bottom = 1
+	n.border_color = Color(0.48, 0.44, 0.58, 0.45)
 	n.content_margin_left = 10.0
 	n.content_margin_right = 10.0
 	n.content_margin_top = 6.0
 	n.content_margin_bottom = 6.0
 	btn.add_theme_stylebox_override("normal", n)
 	var h := n.duplicate()
-	h.bg_color = Color(0.92, 0.90, 0.85, 0.8)
+	h.bg_color = Color(0.14, 0.15, 0.22, 0.90)
 	btn.add_theme_stylebox_override("hover", h)
 	var p := n.duplicate()
-	p.bg_color = Color(0.88, 0.86, 0.82, 0.9)
+	p.bg_color = Color(0.07, 0.08, 0.12, 0.92)
 	btn.add_theme_stylebox_override("pressed", p)
+
+func _make_quick_rail_btn(label_text: String, on_press: Callable) -> Button:
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(32, 32)
+	btn.text = label_text
+	btn.add_theme_font_size_override("font_size", 12)
+	btn.add_theme_color_override("font_color", Color(0.92, 0.84, 0.55))
+	var n := StyleBoxFlat.new()
+	n.bg_color = Color(0.06, 0.06, 0.10, 0.90)
+	n.border_width_left = 1
+	n.border_width_right = 1
+	n.border_width_top = 1
+	n.border_width_bottom = 1
+	n.border_color = Color(0.72, 0.58, 0.28, 0.6)
+	n.corner_radius_top_left = 7
+	n.corner_radius_top_right = 7
+	n.corner_radius_bottom_left = 7
+	n.corner_radius_bottom_right = 7
+	btn.add_theme_stylebox_override("normal", n)
+	var h := n.duplicate()
+	h.bg_color = Color(0.13, 0.12, 0.18, 0.95)
+	btn.add_theme_stylebox_override("hover", h)
+	var p := n.duplicate()
+	p.bg_color = Color(0.04, 0.04, 0.08, 0.95)
+	btn.add_theme_stylebox_override("pressed", p)
+	btn.pressed.connect(func():
+		AudioManager.play_sfx("button")
+		if on_press.is_valid():
+			on_press.call())
+	return btn
 
 # ==================== 帧动画 + 对战动画系统 ====================
 func _idle_animation(delta: float) -> void:
@@ -850,6 +1008,7 @@ func _refresh_top() -> void:
 	level_label.text = "Lv.%d" % d["player"]["level"]
 	gold_label.text = _fmt(int(d["player"]["gold"]))
 	gems_label.text = str(d["player"]["gems"])
+	_update_left_combat_hud()
 
 func _refresh_zone() -> void:
 	var zi: int = GameManager.game_data["zone"]["current"]
@@ -861,6 +1020,36 @@ func _refresh_zone() -> void:
 	var bg_tex: Texture2D = AssetRegistry.load_texture(bg_path)
 	if bg_tex:
 		zone_bg.texture = bg_tex
+	_update_stage_info()
+
+func _update_stage_info() -> void:
+	if not _stage_info_label or not GameManager.is_loaded:
+		return
+	var zi: int = int(GameManager.game_data["zone"]["current"])
+	var zone: Dictionary = DataManager.ZONES[zi]
+	var wave_txt := "BOSS" if GameManager.is_boss_fight else "WAVE"
+	var left_count := 0
+	if GameManager.battle_wave and GameManager.battle_wave.is_wave_active():
+		left_count = GameManager.battle_wave.get_active_enemies().size()
+	_stage_info_label.text = "章节: %s\n推荐等级: Lv.%d-%d\n%s 剩余: %d" % [
+		zone["name"],
+		int(zone["min_lv"]),
+		int(zone["max_lv"]),
+		wave_txt,
+		left_count
+	]
+
+func _update_left_combat_hud() -> void:
+	if not _left_hud_stats_label or not GameManager.is_loaded:
+		return
+	var combat: Dictionary = GameManager.game_data.get("combat", {})
+	_left_hud_stats_label.text = "ATK: %d\nDEF: %d\nCRIT: %.1f%%\nHP: %d/%d" % [
+		int(combat.get("atk", 0)),
+		int(combat.get("def", 0)),
+		float(combat.get("crit", 0.0)),
+		int(GameManager.player_hp),
+		int(combat.get("max_hp", 0)),
+	]
 
 
 # ==================== 冒险世界地图 ====================
@@ -1725,6 +1914,7 @@ func _on_wave_started(enemies: Array) -> void:
 	_prev_php = GameManager.player_hp
 	if _wave_label:
 		_wave_label.text = "× %d" % enemies.size()
+	_update_stage_info()
 
 func _process_spawn_queue(delta: float) -> void:
 	if _spawn_queue.is_empty():
@@ -1788,8 +1978,29 @@ func _on_loot_closed() -> void:
 	_refresh_player_avatar()
 	GameManager.continue_next_wave()
 
+func _on_damage_popup(target_id: int, amount: int, kind: String) -> void:
+	if not _dmg_popups:
+		return
+	_dmg_popups.show_at_world(_get_damage_anchor(target_id), amount, kind)
+
+func _get_damage_anchor(target_id: int) -> Vector2:
+	if target_id == GameManager.PLAYER_POPUP_ID:
+		if player_visual:
+			var center := Vector2(player_visual.size.x * 0.42, player_visual.size.y * 0.38)
+			return player_visual.get_global_transform() * center
+		return battle_arena.global_position + Vector2(80, battle_arena.size.y * 0.55)
+	if target_id == GameManager.BOSS_POPUP_ID and _boss_unit:
+		return _boss_unit.global_position + Vector2(40, 32)
+	if _enemy_units.has(target_id):
+		var unit: BattleEnemyUnit = _enemy_units[target_id]
+		return unit.global_position + Vector2(40, 32)
+	return battle_arena.global_position + Vector2(battle_arena.size.x * 0.62, battle_arena.size.y * 0.45)
+
 func _on_skill_cast(skill_id: String, color: Color, _target_pos: Vector2) -> void:
 	if not battle_effects:
+		return
+	if skill_id == "arc_cleave":
+		_spawn_arc_cleave_vfx(color)
 		return
 	var arena_pos := Vector2(effect_layer.size.x * 0.65, effect_layer.size.y * 0.35)
 	var eid := GameManager.current_target_id
@@ -1825,6 +2036,55 @@ func _on_skill_cast(skill_id: String, color: Color, _target_pos: Vector2) -> voi
 		tw.parallel().tween_property(spr, "modulate:a", 0.0, 0.5)
 		tw.tween_callback(spr.queue_free)
 
+func _spawn_arc_cleave_vfx(color: Color) -> void:
+	var arena_size: Vector2 = _get_arena_size()
+	var from_pos := Vector2(arena_size.x * 0.10, arena_size.y * 0.74)
+	var to_pos := Vector2(arena_size.x * 0.92, arena_size.y * 0.52)
+	if player_visual:
+		player_visual.play_attack_sequence()
+	AudioManager.play_sfx("crit")
+	battle_effects.spawn_aoe_wave(from_pos, to_pos, color)
+	# 横向裂风斩光带
+	var slash := ColorRect.new()
+	slash.size = Vector2(arena_size.x * 0.78, 18)
+	slash.position = from_pos + Vector2(0, -9)
+	slash.color = Color(color.r, color.g, color.b, 0.55)
+	slash.rotation = -0.12
+	slash.pivot_offset = slash.size * 0.5
+	slash.position += slash.size * 0.5
+	effect_layer.add_child(slash)
+	var tw_slash := create_tween()
+	tw_slash.tween_property(slash, "scale", Vector2(1.15, 2.2), 0.12)
+	tw_slash.parallel().tween_property(slash, "modulate:a", 0.0, 0.38)
+	tw_slash.tween_callback(slash.queue_free)
+	# 技能图标闪光
+	var vfx_path: String = AssetRegistry.get_skill_vfx("arc_cleave")
+	if ResourceLoader.exists(vfx_path):
+		var spr := TextureRect.new()
+		spr.texture = load(vfx_path)
+		spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		spr.custom_minimum_size = Vector2(96, 96)
+		spr.size = Vector2(96, 96)
+		spr.position = from_pos.lerp(to_pos, 0.45) - Vector2(48, 48)
+		spr.modulate = Color(color.r, color.g, color.b, 0.85)
+		effect_layer.add_child(spr)
+		var tw_icon := create_tween()
+		tw_icon.tween_property(spr, "scale", Vector2(1.8, 1.8), 0.18)
+		tw_icon.parallel().tween_property(spr, "modulate:a", 0.0, 0.45)
+		tw_icon.tween_callback(spr.queue_free)
+	# 全体受击反馈
+	for eid in _enemy_units:
+		var unit: BattleEnemyUnit = _enemy_units[eid]
+		var hit_pos: Vector2 = unit.position + Vector2(40, 42)
+		battle_effects.spawn_hit_particles(hit_pos, color, 10)
+		battle_effects.spawn_crit_effect(hit_pos)
+		unit.play_hit()
+	if _boss_unit:
+		var bpos: Vector2 = _boss_unit.position + Vector2(40, 42)
+		battle_effects.spawn_hit_particles(bpos, color, 12)
+		battle_effects.spawn_crit_effect(bpos)
+		_boss_unit.play_hit()
+
 func _spawn_boss_unit() -> void:
 	_clear_enemy_units()
 	var boss := GameManager.current_boss
@@ -1845,6 +2105,7 @@ func _spawn_boss_unit() -> void:
 	_boss_unit = unit
 	if _wave_label:
 		_wave_label.text = "💀 BOSS"
+	_update_stage_info()
 	battle_effects.spawn_boss_entrance(unit.position + Vector2(40, 45))
 	unit.play_enter()
 	unit.enter_finished.connect(func(): pass)

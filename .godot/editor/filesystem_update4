@@ -9,3 +9,6 @@ res://scripts/ui/battle_layout.gd
 res://scripts/ui/battle_arena_field.gd
 res://scripts/ui/theme_config.gd
 res://scripts/ui/nav_tab_button.gd
+res://scripts/autoload/save_manager.gd
+res://scripts/systems/skill_system.gd
+res://scripts/ui/battle_effects.gd

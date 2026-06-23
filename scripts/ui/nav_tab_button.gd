@@ -11,6 +11,7 @@ var _tex_normal: Texture2D
 var _tex_active: Texture2D
 var _selected := false
 var _label_text := ""
+var _pulse_t := 0.0
 
 func setup(label_text: String, icon_normal: Texture2D, icon_active: Texture2D) -> void:
 	_label_text = label_text
@@ -37,6 +38,7 @@ func _ready() -> void:
 	alignment = ALIGNMENT_CENTER
 	add_theme_constant_override("separation", 0)
 	focus_mode = Control.FOCUS_NONE
+	set_process(true)
 
 	var icon_wrap := CenterContainer.new()
 	icon_wrap.name = "IconWrap"
@@ -93,6 +95,16 @@ func _ready() -> void:
 	mouse_entered.connect(_on_hover.bind(true))
 	mouse_exited.connect(_on_hover.bind(false))
 
+func _process(delta: float) -> void:
+	if not _selected or not _glow:
+		return
+	_pulse_t += delta * 4.2
+	var gs := _glow.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	var pulse := 0.32 + sin(_pulse_t) * 0.13
+	gs.shadow_size = 7 + int((sin(_pulse_t * 0.9) + 1.0) * 2.0)
+	gs.bg_color = Color(0.55, 0.38, 0.72, pulse)
+	_glow.add_theme_stylebox_override("panel", gs)
+
 func _on_gui_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 		tab_pressed.emit()
@@ -109,6 +121,7 @@ func _apply_visual() -> void:
 		_icon.texture = _tex_active if _selected else _tex_normal
 	var box := _icon.get_parent() as Control
 	if _selected:
+		_pulse_t = 0.0
 		_icon.offset_left = 2
 		_icon.offset_top = 2
 		_icon.offset_right = -2

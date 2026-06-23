@@ -17,6 +17,12 @@ const SKILLS := {
 		"base_hits": 3, "hit_per_lv": 1, "dmg_pct": 60, "dmg_per_lv": 8,
 		"icon": "storm", "color": Color(1.0, 0.5, 0.2),
 	},
+	"arc_cleave": {
+		"name": "横扫千军", "desc": "挥出裂风斩，对全体敌人造成{dmg}%攻击力伤害",
+		"type": "physical", "unlock_lv": 1, "max_lv": 20, "cooldown": 6.0,
+		"dmg_pct": 90, "dmg_per_lv": 12, "aoe": true,
+		"icon": "cleave", "color": Color(0.55, 0.85, 1.0),
+	},
 	"execute": {
 		"name": "斩杀", "desc": "对目标造成{dmg}%攻击力伤害，目标血量低于30%时伤害翻倍",
 		"type": "physical", "unlock_lv": 5, "max_lv": 20, "cooldown": 8.0,
@@ -142,6 +148,40 @@ func _init_cooldowns() -> void:
 		skill_cooldowns[skill_id] = 0.0
 		skill_timers[skill_id] = 0.0
 
+func get_skill_cd_max(skill_id: String) -> float:
+	if not SKILLS.has(skill_id):
+		return 1.0
+	var cd: float = float(SKILLS[skill_id]["cooldown"])
+	var cd_reduce: float = get_talent_value("cooldown_reduce_pct")
+	return maxf(0.5, cd * (1.0 - cd_reduce / 100.0))
+
+func get_equipped_skill_states() -> Array:
+	var result: Array = []
+	if not GameManager.is_loaded:
+		return result
+	var data: Dictionary = GameManager.game_data
+	if not data.has("skills"):
+		return result
+	var equipped: Array = data["skills"].get("equipped", [])
+	var levels: Dictionary = data["skills"].get("levels", {})
+	for skill_id in equipped:
+		if not SKILLS.has(skill_id):
+			continue
+		var lv: int = int(levels.get(skill_id, 0))
+		if lv <= 0:
+			continue
+		var sk: Dictionary = SKILLS[skill_id]
+		result.append({
+			"id": skill_id,
+			"name": sk["name"],
+			"color": sk["color"],
+			"level": lv,
+			"cd_remaining": float(skill_cooldowns.get(skill_id, 0.0)),
+			"cd_max": get_skill_cd_max(skill_id),
+			"icon": AssetRegistry.get_skill_icon(skill_id),
+		})
+	return result
+
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded or not GameManager.is_fighting:
 		return
@@ -186,16 +226,29 @@ func _auto_cast_skills(delta: float) -> void:
 		# 天赋减CD
 		var cd_reduce: float = get_talent_value("cooldown_reduce_pct")
 		cd *= (1.0 - cd_reduce / 100.0)
-		skill_cooldowns[skill_id] = cd
+		skill_cooldowns[skill_id] = maxf(cd, 0.5)
 		_emit_skill_cast(skill_id, SKILLS[skill_id]["color"])
 
 func _emit_skill_cast(skill_id: String, color: Color) -> void:
 	var pos := Vector2(400, 300)
 	if not GameManager.is_boss_fight:
-		var target := GameManager.battle_wave.get_front_target()
-		if not target.is_empty():
-			pos = Vector2(500 + int(target.get("slot_index", 0)) * 40, 200)
+		if SKILLS.get(skill_id, {}).get("aoe", false):
+			pos = _get_aoe_vfx_center()
+		else:
+			var target := GameManager.battle_wave.get_front_target()
+			if not target.is_empty():
+				pos = Vector2(500 + int(target.get("slot_index", 0)) * 40, 200)
 	skill_cast.emit(skill_id, color, pos)
+
+func _get_aoe_vfx_center() -> Vector2:
+	var enemies: Array = GameManager.battle_wave.get_active_enemies()
+	if enemies.is_empty():
+		return Vector2(400, 280)
+	var sum := Vector2.ZERO
+	for e in enemies:
+		sum.x += 480.0 + int(e.get("slot_index", 0)) * 36.0
+		sum.y += 220.0
+	return sum / float(enemies.size())
 
 func _cast_skill(skill_id: String, level: int) -> void:
 	var skill: Dictionary = SKILLS[skill_id]
@@ -204,6 +257,11 @@ func _cast_skill(skill_id: String, level: int) -> void:
 	var skill_dmg_bonus: float = 1.0 + get_talent_value("skill_dmg_pct") / 100.0
 	
 	match skill_id:
+		"arc_cleave":
+			var dmg_pct: float = (float(skill["dmg_pct"]) + float(skill["dmg_per_lv"]) * (level - 1)) / 100.0
+			var total_dmg: int = int(player_atk * dmg_pct * skill_dmg_bonus)
+			_deal_skill_aoe_damage(total_dmg, skill["name"], skill["color"])
+		
 		"slash_storm":
 			var hits: int = int(skill["base_hits"]) + int(skill["hit_per_lv"]) * (level - 1)
 			if not GameManager.is_boss_fight:
@@ -273,6 +331,9 @@ func _cast_skill(skill_id: String, level: int) -> void:
 
 func _deal_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
 	GameManager.apply_skill_damage(dmg, skill_name, color)
+
+func _deal_skill_aoe_damage(dmg: int, skill_name: String, color: Color) -> void:
+	GameManager.apply_skill_aoe_damage(dmg, skill_name, color)
 
 func _process_effects(delta: float) -> void:
 	var i: int = active_effects.size() - 1

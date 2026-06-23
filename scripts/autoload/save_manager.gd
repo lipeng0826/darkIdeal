@@ -116,8 +116,8 @@ func create_new_save() -> Dictionary:
 		
 		# 技能系统
 		"skills": {
-			"levels": {},
-			"equipped": [],
+			"levels": {"arc_cleave": 1},
+			"equipped": ["arc_cleave"],
 		},
 		
 		# 天赋系统
@@ -208,7 +208,22 @@ func _normalize_loaded_data(data: Dictionary) -> Dictionary:
 	for i in range(inv.size()):
 		inv[i] = DataManager.normalize_item(inv[i])
 	data["inventory"] = inv
+	_ensure_starter_skills(data)
 	return data
+
+func _ensure_starter_skills(data: Dictionary) -> void:
+	if not data.has("skills"):
+		data["skills"] = {"levels": {}, "equipped": []}
+	if not data["skills"].has("levels"):
+		data["skills"]["levels"] = {}
+	if not data["skills"].has("equipped"):
+		data["skills"]["equipped"] = []
+	var levels: Dictionary = data["skills"]["levels"]
+	var equipped: Array = data["skills"]["equipped"]
+	if int(levels.get("arc_cleave", 0)) <= 0:
+		levels["arc_cleave"] = 1
+	if "arc_cleave" not in equipped and equipped.size() < 4:
+		equipped.append("arc_cleave")
 
 ## 计算离线收益
 func calculate_offline_rewards(data: Dictionary) -> Dictionary:

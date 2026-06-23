@@ -138,6 +138,7 @@ const EQUIP_OVERLAY_TEXTURES := {
 
 const SKILL_VFX_TEXTURES := {
 	"slash_storm": "res://assets/generated/skills/skill_slash_storm.png",
+	"arc_cleave": "res://assets/generated/skills/skill_whirlwind.png",
 	"execute": "res://assets/generated/skills/skill_execute.png",
 	"bleed": "res://assets/generated/skills/skill_bleed.png",
 	"whirlwind": "res://assets/generated/skills/skill_whirlwind.png",
