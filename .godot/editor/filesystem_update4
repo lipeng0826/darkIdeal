@@ -1,0 +1,4 @@
+res://scripts/ui/asset_registry.gd
+res://scripts/ui/main_ui.gd
+res://scripts/ui/adventure_map_view.gd
+res://scripts/ui/player_visual.gd

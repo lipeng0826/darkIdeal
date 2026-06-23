@@ -1,0 +1,203 @@
+extends Control
+class_name PlayerVisual
+## 单一主角精灵（持剑骑士），装备不改变外观
+
+var body_sprite: TextureRect
+
+var _idle_textures: Array = []
+var _attack_textures: Array = []
+var _is_attacking := false
+var _foot_y := 0.0
+var _sprite_w := 0.0
+var _sprite_h := 0.0
+var _mo := Vector2.ZERO
+var _motion_scale := Vector2.ONE
+
+var motion_offset: Vector2:
+	get:
+		return _mo
+	set(value):
+		_mo = value
+		_apply_sprite_transform()
+
+var motion_scale: Vector2:
+	get:
+		return _motion_scale
+	set(value):
+		_motion_scale = value
+		_apply_sprite_transform()
+
+const IDLE_FRAMES := [
+	"res://assets/sprites/hero_idle_1.png",
+	"res://assets/sprites/hero_idle_2.png",
+]
+const ATTACK_FRAMES := [
+	"res://assets/sprites/hero_attack_1.png",
+]
+const FALLBACK_IDLE := "res://assets/sprites/player_idle_1.png"
+const FALLBACK_ATTACK := "res://assets/sprites/player_attack_1.png"
+const CHROMA_SHADER := "res://shaders/chroma_key.gdshader"
+
+func _ready() -> void:
+	_ensure_nodes()
+	_load_frames()
+	_apply_chroma(body_sprite)
+	call_deferred("_fit_hero")
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		call_deferred("_fit_hero")
+
+func _fit_hero() -> void:
+	if not body_sprite or not body_sprite.texture or size.y < 20.0:
+		return
+	var tex: Texture2D = body_sprite.texture
+	var arena_h: float = _get_arena_height()
+	var ground_y: float = arena_h * BattleLayout.GROUND_Y_RATIO
+	_foot_y = ground_y - BattleLayout.SPRITE_FOOT_INSET
+	_sprite_h = arena_h * BattleLayout.HERO_HEIGHT_RATIO
+	_sprite_w = _sprite_h * (float(tex.get_width()) / float(tex.get_height()))
+	_mo = Vector2.ZERO
+	_motion_scale = Vector2.ONE
+	body_sprite.stretch_mode = TextureRect.STRETCH_SCALE
+	body_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_apply_sprite_transform()
+	_layout_ground_shadow(_sprite_w, _foot_y)
+
+func _apply_sprite_transform() -> void:
+	if not body_sprite or _sprite_h < 1.0:
+		return
+	var w: float = _sprite_w * _motion_scale.x
+	var h: float = _sprite_h * _motion_scale.y
+	var foot: float = _foot_y + _mo.y
+	var left: float = (size.x - w) * 0.5 + _mo.x
+	body_sprite.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	body_sprite.offset_left = left
+	body_sprite.offset_top = foot - h
+	body_sprite.offset_right = left + w
+	body_sprite.offset_bottom = foot
+	body_sprite.pivot_offset = Vector2(w * 0.5, h)
+
+func _layout_ground_shadow(sprite_w: float, foot_y: float) -> void:
+	if not has_node("GroundShadow"):
+		return
+	var sh: ColorRect = $GroundShadow
+	var sw: float = sprite_w * 0.55
+	sh.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	sh.offset_left = (size.x - sw) * 0.5
+	sh.offset_top = foot_y - 2.0
+	sh.offset_right = sh.offset_left + sw
+	sh.offset_bottom = foot_y + 8.0
+
+func _get_arena_height() -> float:
+	var node: Node = get_parent()
+	while node:
+		if node.name == "BattleArena" and node is Control:
+			var h: float = (node as Control).size.y
+			if h > 20.0:
+				return h
+		node = node.get_parent()
+	return size.y
+
+func _load_frames() -> void:
+	_idle_textures.clear()
+	_attack_textures.clear()
+	for p in IDLE_FRAMES:
+		var t: Texture2D = AssetRegistry.load_texture(p)
+		if t:
+			_idle_textures.append(t)
+	if _idle_textures.is_empty():
+		var fb: Texture2D = load(FALLBACK_IDLE)
+		if fb:
+			_idle_textures.append(fb)
+	for p in ATTACK_FRAMES:
+		var t2: Texture2D = AssetRegistry.load_texture(p)
+		if t2:
+			_attack_textures.append(t2)
+	if _attack_textures.is_empty():
+		var fb2: Texture2D = load(FALLBACK_ATTACK)
+		if fb2:
+			_attack_textures.append(fb2)
+	if _idle_textures.size() > 0 and body_sprite:
+		body_sprite.texture = _idle_textures[0]
+
+func apply_idle_motion(phase: float) -> void:
+	if _is_attacking:
+		return
+	var bob: float = sin(phase) * 4.0
+	var breath: float = 1.0 + sin(phase * 1.5) * 0.015
+	motion_offset = Vector2(0.0, bob)
+	motion_scale = Vector2(breath, breath)
+
+func reset_motion() -> void:
+	motion_offset = Vector2.ZERO
+	motion_scale = Vector2.ONE
+
+func set_idle_frame(idx: int) -> void:
+	if _is_attacking:
+		return
+	if _idle_textures.size() > 0 and body_sprite:
+		body_sprite.texture = _idle_textures[idx % _idle_textures.size()]
+
+func play_attack_frame() -> void:
+	_is_attacking = true
+	if _attack_textures.size() > 0 and body_sprite:
+		body_sprite.texture = _attack_textures[0]
+
+func restore_idle_frame() -> void:
+	_is_attacking = false
+	if _idle_textures.size() > 0 and body_sprite:
+		body_sprite.texture = _idle_textures[0]
+
+func get_body_sprite() -> TextureRect:
+	return body_sprite
+
+func get_avatar_texture() -> Texture2D:
+	if _idle_textures.size() > 0:
+		return _idle_textures[0]
+	return null
+
+func _apply_chroma(rect: TextureRect) -> void:
+	if not rect:
+		return
+	var shader: Shader = load(CHROMA_SHADER)
+	if shader:
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		mat.set_shader_parameter("threshold", 0.40)
+		mat.set_shader_parameter("smoothing", 0.15)
+		rect.material = mat
+
+func _ensure_nodes() -> void:
+	if not has_node("GroundShadow"):
+		var sh := ColorRect.new()
+		sh.name = "GroundShadow"
+		sh.color = Color(0, 0, 0, 0.2)
+		sh.custom_minimum_size = Vector2(64, 12)
+		sh.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		sh.anchor_left = 0.15
+		sh.anchor_right = 0.85
+		sh.anchor_top = 0.88
+		sh.anchor_bottom = 0.94
+		sh.offset_left = 0
+		sh.offset_top = 0
+		sh.offset_right = 0
+		sh.offset_bottom = 0
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(sh)
+		move_child(sh, 0)
+	if not has_node("BodySprite"):
+		var b := TextureRect.new()
+		b.name = "BodySprite"
+		b.set_anchors_preset(Control.PRESET_FULL_RECT)
+		b.offset_left = 0
+		b.offset_top = 0
+		b.offset_right = 0
+		b.offset_bottom = 0
+		b.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		b.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(b)
+		body_sprite = b
+	else:
+		body_sprite = $BodySprite

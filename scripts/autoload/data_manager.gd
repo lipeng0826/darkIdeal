@@ -291,16 +291,34 @@ const SHOP_ITEMS := [
 func exp_for_level(lv: int) -> int:
 	return int(80.0 * pow(lv, 1.6) * (1.0 + lv * 0.05))
 
-## 敌人属性缩放
-func scale_enemy(base: Dictionary, zone_lv: int) -> Dictionary:
-	var mult := 1.0 + zone_lv * 0.15
+## 敌人属性缩放（按区域 + 玩家等级，血量优先成长）
+func scale_enemy(base: Dictionary, player_lv: int, zone_idx: int = 0) -> Dictionary:
+	var zone: Dictionary = ZONES[clampi(zone_idx, 0, ZONES.size() - 1)]
+	var zone_mid: int = (int(zone["min_lv"]) + int(zone["max_lv"])) / 2
+	var gap: int = maxi(0, player_lv - int(zone["max_lv"]))
+	# 战斗有效等级：不低于区域中段，体现越级刷图
+	var eff_lv: int = maxi(zone_mid, player_lv)
+	var lv_mult: float = 1.0 + eff_lv * 0.14 + zone_idx * 0.35
+	var gap_hp: float = 1.0 + gap * 0.22
+	var hp_mult: float = lv_mult * gap_hp * 3.2
+	var stat_mult: float = lv_mult * (1.0 + gap * 0.07)
 	return {
-		"hp": int(base["hp"] * mult),
-		"atk": int(base["atk"] * mult),
-		"def": int(base["def"] * mult),
-		"exp": int(base["exp"] * mult),
-		"gold": int(base["gold"] * mult),
+		"hp": maxi(1, int(base["hp"] * hp_mult)),
+		"atk": maxi(1, int(base["atk"] * stat_mult)),
+		"def": maxi(1, int(base["def"] * stat_mult)),
+		"exp": maxi(1, int(base["exp"] * lv_mult)),
+		"gold": maxi(1, int(base["gold"] * lv_mult)),
 	}
+
+## 根据玩家攻击力确保小怪需要若干次普攻才能击杀
+func ensure_wave_enemy_hp(scaled: Dictionary, player_atk: int, zone_idx: int, hits_to_kill: int = 6) -> Dictionary:
+	var result: Dictionary = scaled.duplicate(true)
+	var enemy_def: int = int(result.get("def", 0))
+	var est_hit: int = maxi(1, player_atk - enemy_def / 2)
+	var min_hp: int = est_hit * hits_to_kill
+	result["hp"] = maxi(int(result["hp"]), min_hp)
+	result["max_hp"] = result["hp"]
+	return result
 
 ## Boss属性缩放
 func scale_boss(boss: Dictionary, zone_lv: int) -> Dictionary:
@@ -381,7 +399,43 @@ func generate_item(slot: int, level: int, rarity_boost: int = 0) -> Dictionary:
 		var prefixes := ["暗影", "深渊", "诅咒", "虚无", "混沌", "灭世", "永恒"]
 		item["name"] = prefixes[mini(rarity_id - 2, prefixes.size() - 1)] + "·" + item["name"]
 
-	return item
+	return normalize_item(item)
+
+## 规范化装备数据（JSON 存档加载后 slot/stats 键可能变成 float/string）
+static func normalize_item(item: Variant) -> Dictionary:
+	if item == null or not item is Dictionary:
+		return {}
+	var src: Dictionary = item
+	if src.is_empty():
+		return src
+	var out: Dictionary = src.duplicate(true)
+	out["slot"] = int(out.get("slot", 0))
+	out["rarity"] = int(out.get("rarity", 0))
+	out["level"] = int(out.get("level", 1))
+	if out.has("enhance_level"):
+		out["enhance_level"] = int(out.get("enhance_level", 0))
+	var stats_raw: Variant = out.get("stats", {})
+	if stats_raw is Dictionary:
+		var stats_norm := {}
+		for k in stats_raw:
+			stats_norm[int(k)] = int(stats_raw[k])
+		out["stats"] = stats_norm
+	return out
+
+static func item_slot_key(item: Dictionary) -> String:
+	return str(int(item.get("slot", 0)))
+
+static func get_item_stat(stats: Dictionary, stat_type: int) -> int:
+	for k in stats:
+		if int(k) == stat_type:
+			return int(stats[k])
+	return 0
+
+static func item_power(item: Dictionary) -> int:
+	var power := 0
+	for k in item.get("stats", {}):
+		power += int(item["stats"][k])
+	return power
 
 func _ready() -> void:
 	data_ready.emit()

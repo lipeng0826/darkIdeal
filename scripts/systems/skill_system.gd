@@ -6,6 +6,7 @@ class_name SkillSystem
 signal skill_unlocked(skill_id: String)
 signal skill_upgraded(skill_id: String, new_level: int)
 signal talent_learned(talent_id: String)
+signal skill_cast(skill_id: String, color: Color, target_pos: Vector2)
 
 # ==================== 主动技能定义 ====================
 const SKILLS := {
@@ -144,6 +145,8 @@ func _init_cooldowns() -> void:
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded or not GameManager.is_fighting:
 		return
+	if GameManager.is_wave_transition:
+		return
 	
 	# 更新冷却
 	for skill_id in skill_cooldowns:
@@ -164,6 +167,8 @@ func _auto_cast_skills(delta: float) -> void:
 	var data: Dictionary = GameManager.game_data
 	if not data.has("skills"):
 		return
+	if not GameManager.is_boss_fight:
+		GameManager._sync_front_target()
 	var equipped: Array = data["skills"].get("equipped", [])
 	
 	for skill_id in equipped:
@@ -182,6 +187,15 @@ func _auto_cast_skills(delta: float) -> void:
 		var cd_reduce: float = get_talent_value("cooldown_reduce_pct")
 		cd *= (1.0 - cd_reduce / 100.0)
 		skill_cooldowns[skill_id] = cd
+		_emit_skill_cast(skill_id, SKILLS[skill_id]["color"])
+
+func _emit_skill_cast(skill_id: String, color: Color) -> void:
+	var pos := Vector2(400, 300)
+	if not GameManager.is_boss_fight:
+		var target := GameManager.battle_wave.get_front_target()
+		if not target.is_empty():
+			pos = Vector2(500 + int(target.get("slot_index", 0)) * 40, 200)
+	skill_cast.emit(skill_id, color, pos)
 
 func _cast_skill(skill_id: String, level: int) -> void:
 	var skill: Dictionary = SKILLS[skill_id]
@@ -192,6 +206,8 @@ func _cast_skill(skill_id: String, level: int) -> void:
 	match skill_id:
 		"slash_storm":
 			var hits: int = int(skill["base_hits"]) + int(skill["hit_per_lv"]) * (level - 1)
+			if not GameManager.is_boss_fight:
+				hits = mini(hits, 4)
 			var dmg_pct: float = (float(skill["dmg_pct"]) + float(skill["dmg_per_lv"]) * (level - 1)) / 100.0
 			var total_dmg: int = int(player_atk * dmg_pct * hits * skill_dmg_bonus)
 			_deal_skill_damage(total_dmg, skill["name"], skill["color"])
@@ -199,7 +215,12 @@ func _cast_skill(skill_id: String, level: int) -> void:
 		"execute":
 			var dmg_pct: float = (float(skill["dmg_pct"]) + float(skill["dmg_per_lv"]) * (level - 1)) / 100.0
 			var total_dmg: int = int(player_atk * dmg_pct * skill_dmg_bonus)
-			if GameManager.enemy_hp < GameManager.enemy_max_hp * skill["threshold"]:
+			var threshold_hp: int = GameManager.enemy_max_hp
+			if not GameManager.is_boss_fight:
+				var t := GameManager.battle_wave.get_front_target()
+				if not t.is_empty():
+					threshold_hp = int(t["max_hp"])
+			if GameManager.enemy_hp < threshold_hp * skill["threshold"]:
 				total_dmg *= 2
 			_deal_skill_damage(total_dmg, skill["name"], skill["color"])
 		
@@ -251,8 +272,7 @@ func _cast_skill(skill_id: String, level: int) -> void:
 	AudioManager.play_sfx("crit")
 
 func _deal_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
-	GameManager.enemy_hp -= dmg
-	GameManager.battle_log.emit("✦ %s: %d 伤害" % [skill_name, dmg], color)
+	GameManager.apply_skill_damage(dmg, skill_name, color)
 
 func _process_effects(delta: float) -> void:
 	var i: int = active_effects.size() - 1
@@ -267,7 +287,7 @@ func _process_effects(delta: float) -> void:
 			eff["tick_timer"] += delta
 			if eff["tick_timer"] >= 1.0:
 				eff["tick_timer"] -= 1.0
-				GameManager.enemy_hp -= int(eff["dmg_per_tick"])
+				GameManager.apply_dot_damage(int(eff["dmg_per_tick"]))
 		i -= 1
 
 ## 护盾吸收伤害

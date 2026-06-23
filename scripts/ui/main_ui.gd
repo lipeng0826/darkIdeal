@@ -1,6 +1,6 @@
 extends Control
 ## 暗影深渊 - 二次元精致温暖风 UI v4
-## 风格: 明日方舟/原神式温暖色调 | 左右对战布局 | 纵向路线图
+## 风格: 明日方舟/原神式温暖色调 | 左右对战布局 | 冒险世界地图
 
 # ==================== 节点引用 ====================
 @onready var bg_panel: Panel = $BG
@@ -20,26 +20,27 @@ extends Control
 @onready var zone_label: Label = $SafeArea/VBox/ContentArea/BattleView/ZoneBanner/ZoneLabel
 @onready var battle_arena: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena
 @onready var zone_bg: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/ZoneBG
-@onready var player_sprite: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerSprite
+@onready var player_visual: PlayerVisual = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerVisual
 @onready var vs_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleArena/VSLabel
-@onready var enemy_sprite: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EnemySprite
+@onready var enemy_container: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EnemyContainer
 @onready var effect_layer: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EffectLayer
-
-@onready var player_name_label: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow/PlayerName
-@onready var player_hp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow/PlayerHPBar
-@onready var player_hp_label: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow/PlayerHPLabel
-@onready var enemy_name_label: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow/EnemyName
-@onready var enemy_hp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow/EnemyHPBar
-@onready var enemy_hp_label: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow/EnemyHPLabel
+@onready var battle_effects: BattleEffects = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EffectLayer/BattleEffects
+@onready var player_info_overlay: VBoxContainer = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay
+@onready var player_avatar: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow/Avatar
+@onready var overlay_level_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow/LevelLabel
+@onready var player_hp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerHPBar
+@onready var player_hp_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerHPLabel
+@onready var loot_dialog: LootDialog = $LootDialogLayer/LootDialog
 @onready var exp_text: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpText
 @onready var exp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpBar
 @onready var exp_pct: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpPct
 
+@onready var action_row: HBoxContainer = $SafeArea/VBox/ContentArea/BattleView/ActionRow
 @onready var boss_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/BossBtn
 @onready var prev_zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/PrevZone
 @onready var zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/ZoneBtn
 @onready var next_zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/NextZone
-@onready var battle_log: RichTextLabel = $SafeArea/VBox/ContentArea/BattleView/BattleLog
+@onready var battle_log: RichTextLabel = $SafeArea/VBox/ContentArea/BattleView/BattleArena/BattleLog
 @onready var dmg_layer: Control = $SafeArea/VBox/ContentArea/BattleView/DmgLayer
 
 # 面板
@@ -66,9 +67,21 @@ var _shake_t := 0.0
 var _prev_ehp := 0
 var _prev_php := 0
 var _idle_phase := 0.0
+var _enemy_units: Dictionary = {}
+var _boss_unit: BattleEnemyUnit = null
+var _spawn_queue: Array = []
+var _spawn_delay := 0.0
 var _atk_anim_playing := false
+var _wave_label: Label
+var _arena_polish_done := false
+var _equip_tooltip: EquipTooltip
+var _equip_compare: EquipCompareDialog
+const SPAWN_STAGGER := 0.35
 
-# ==================== 精灵帧动画资源 ====================
+func _get_player_sprite() -> TextureRect:
+	if player_visual and player_visual.get_body_sprite():
+		return player_visual.get_body_sprite()
+	return null
 # 玩家帧动画路径
 const PLAYER_IDLE_FRAMES: Array = [
 	"res://assets/sprites/player_idle_1.png",
@@ -137,13 +150,21 @@ func _ready() -> void:
 	add_child(craft_system)
 	quest_system = QuestSystem.new()
 	add_child(quest_system)
+	_equip_tooltip = EquipTooltip.new()
+	panel_view.add_child(_equip_tooltip)
+	_equip_compare = EquipCompareDialog.new()
+	panel_view.add_child(_equip_compare)
+	_equip_compare.equip_confirmed.connect(_on_equip_compare_confirm)
 	_apply_theme()
+	_setup_battle_arena_polish()
 	_load_nav_icons()
 	_load_player_sprite()
 	_connect_all()
+	_connect_battle()
 	_refresh_top()
 	_refresh_zone()
 	_highlight_tab()
+	call_deferred("_sync_battle_on_ready")
 
 func _connect_all() -> void:
 	for i in range(nav_row.get_child_count()):
@@ -160,11 +181,28 @@ func _connect_all() -> void:
 	GameManager.toast_message.connect(_show_toast)
 	GameManager.player_level_up.connect(func(_l: int): _shake_t = 0.25; _refresh_top())
 	GameManager.stats_updated.connect(func(): _refresh_top())
-	GameManager.zone_changed.connect(func(_z: int): _refresh_zone())
+	GameManager.zone_changed.connect(func(_z: int): _refresh_zone(); _clear_enemy_units())
 	GameManager.show_offline_rewards.connect(_show_offline)
 	GameManager.item_obtained.connect(func(item: Dictionary):
 		if int(item["rarity"]) >= DataManager.Rarity.RARE: _shake_t = 0.15)
-	GameManager.enemy_killed.connect(_show_battle_rewards)
+	GameManager.wave_cleared.connect(_on_wave_cleared)
+	loot_dialog.closed.connect(_on_loot_closed)
+	GameManager.game_started.connect(_sync_battle_on_ready)
+
+func _sync_battle_on_ready() -> void:
+	if not GameManager.is_loaded:
+		return
+	if GameManager.is_boss_fight:
+		_spawn_boss_unit()
+		return
+	if GameManager.battle_wave.is_wave_active() and _enemy_units.is_empty():
+		_on_wave_started(GameManager.battle_wave.wave_enemies.duplicate(true))
+
+func _connect_battle() -> void:
+	GameManager.battle_wave.wave_started.connect(_on_wave_started)
+	GameManager.battle_wave.enemy_hp_changed.connect(_on_enemy_hp_changed)
+	GameManager.battle_wave.enemy_died.connect(_on_enemy_unit_died)
+	GameManager.skill_system.skill_cast.connect(_on_skill_cast)
 
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded:
@@ -172,6 +210,7 @@ func _process(delta: float) -> void:
 	if current_tab == 0:
 		_update_battle(delta)
 		_idle_animation(delta)
+		_process_spawn_queue(delta)
 	_refresh_top()
 	if _shake_t > 0:
 		_shake_t -= delta
@@ -196,55 +235,62 @@ func _apply_theme() -> void:
 	gem_icon.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
 	gems_label.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
 
-	# 区域横幅 - 半透明圆角卡片
+	# 区域横幅 - 暗色奇幻标题条
 	var zbs := StyleBoxFlat.new()
-	zbs.bg_color = Color(1.0, 1.0, 1.0, 0.85)
-	zbs.corner_radius_top_left = 16
-	zbs.corner_radius_top_right = 16
-	zbs.corner_radius_bottom_left = 16
-	zbs.corner_radius_bottom_right = 16
-	zbs.shadow_color = Color(0, 0, 0, 0.05)
-	zbs.shadow_size = 3
-	zbs.shadow_offset = Vector2(0, 1)
+	zbs.bg_color = Color(0.08, 0.06, 0.12, 0.88)
+	zbs.corner_radius_top_left = 14
+	zbs.corner_radius_top_right = 14
+	zbs.corner_radius_bottom_left = 14
+	zbs.corner_radius_bottom_right = 14
+	zbs.border_width_bottom = 2
+	zbs.border_color = Color(0.55, 0.38, 0.62, 0.75)
+	zbs.shadow_color = Color(0, 0, 0, 0.25)
+	zbs.shadow_size = 4
+	zbs.shadow_offset = Vector2(0, 2)
 	zone_banner.add_theme_stylebox_override("panel", zbs)
-	zone_label.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
+	zone_label.add_theme_color_override("font_color", ThemeConfig.TXT_ON_DARK)
+	zone_label.add_theme_font_size_override("font_size", 13)
 
 	# VS标签
 	vs_label.add_theme_color_override("font_color", ThemeConfig.ACCENT_ORANGE)
 
-	# HP条样式
+	# HP条样式（玩家头顶 + EXP）
 	_style_hp_bar(player_hp_bar, ThemeConfig.HP_GREEN)
-	_style_hp_bar(enemy_hp_bar, ThemeConfig.ENEMY_RED)
 	_style_hp_bar(exp_bar, ThemeConfig.EXP_BLUE)
-	player_name_label.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
+	overlay_level_label.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
 	player_hp_label.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-	enemy_name_label.add_theme_color_override("font_color", ThemeConfig.ENEMY_RED)
-	enemy_hp_label.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 	exp_text.add_theme_color_override("font_color", ThemeConfig.EXP_BLUE)
 	exp_pct.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 
 	# 按钮
-	_style_btn_primary(boss_btn)
-	_style_btn_outline(zone_btn, ThemeConfig.SECONDARY)
+	_style_btn_boss(boss_btn)
+	_style_btn_zone(zone_btn)
 	_style_btn_light(prev_zone_btn)
 	_style_btn_light(next_zone_btn)
 	boss_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
-	zone_btn.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
-	prev_zone_btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-	next_zone_btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	zone_btn.add_theme_color_override("font_color", Color(0.78, 0.88, 0.98))
+	prev_zone_btn.add_theme_color_override("font_color", Color(0.65, 0.70, 0.78))
+	next_zone_btn.add_theme_color_override("font_color", Color(0.65, 0.70, 0.78))
 
-	# 战斗日志
-	battle_log.add_theme_color_override("default_color", ThemeConfig.TXT_SECONDARY)
+	# 战斗日志 - 战场底部悬浮条
+	battle_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle_log.add_theme_color_override("default_color", Color(0.88, 0.86, 0.92, 0.92))
+	battle_log.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	battle_log.add_theme_constant_override("shadow_offset_x", 1)
+	battle_log.add_theme_constant_override("shadow_offset_y", 1)
+	battle_log.add_theme_font_size_override("normal_font_size", 8)
 	var log_bg := StyleBoxFlat.new()
-	log_bg.bg_color = Color(1.0, 1.0, 1.0, 0.7)
-	log_bg.corner_radius_top_left = 8
-	log_bg.corner_radius_top_right = 8
-	log_bg.corner_radius_bottom_left = 8
-	log_bg.corner_radius_bottom_right = 8
-	log_bg.content_margin_left = 10.0
-	log_bg.content_margin_right = 10.0
-	log_bg.content_margin_top = 6.0
-	log_bg.content_margin_bottom = 6.0
+	log_bg.bg_color = Color(0.02, 0.02, 0.05, 0.48)
+	log_bg.corner_radius_top_left = 6
+	log_bg.corner_radius_top_right = 6
+	log_bg.corner_radius_bottom_left = 6
+	log_bg.corner_radius_bottom_right = 6
+	log_bg.border_width_top = 1
+	log_bg.border_color = Color(0.35, 0.30, 0.42, 0.35)
+	log_bg.content_margin_left = 8.0
+	log_bg.content_margin_right = 8.0
+	log_bg.content_margin_top = 2.0
+	log_bg.content_margin_bottom = 2.0
 	battle_log.add_theme_stylebox_override("normal", log_bg)
 
 	# 面板背景
@@ -262,11 +308,164 @@ func _apply_theme() -> void:
 	# 底部导航
 	var ns := ThemeConfig.make_nav_bg()
 	bottom_nav.add_theme_stylebox_override("panel", ns)
+	# LootDialog 样式由 loot_dialog.gd 自行管理
 	for tab_vbox in nav_row.get_children():
 		tab_vbox.mouse_filter = Control.MOUSE_FILTER_STOP
 		for child in tab_vbox.get_children():
 			if child is Label:
 				child.add_theme_color_override("font_color", ThemeConfig.TXT_DISABLED)
+
+func _setup_battle_arena_polish() -> void:
+	if _arena_polish_done:
+		return
+	_arena_polish_done = true
+	battle_arena.clip_contents = true
+	zone_bg.modulate = Color(1, 1, 1, 0.58)
+
+	var frame := Panel.new()
+	frame.name = "ArenaFrame"
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color(0.04, 0.03, 0.07, 0.28)
+	fs.border_width_left = 2
+	fs.border_width_right = 2
+	fs.border_width_top = 2
+	fs.border_width_bottom = 2
+	fs.border_color = Color(0.42, 0.34, 0.55, 0.8)
+	fs.corner_radius_top_left = 12
+	fs.corner_radius_top_right = 12
+	fs.corner_radius_bottom_left = 12
+	fs.corner_radius_bottom_right = 12
+	frame.add_theme_stylebox_override("panel", fs)
+	battle_arena.add_child(frame)
+	battle_arena.move_child(frame, 1)
+
+	var ground_grad := ColorRect.new()
+	ground_grad.name = "GroundGrad"
+	ground_grad.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	ground_grad.anchor_top = 0.62
+	ground_grad.offset_top = 0
+	ground_grad.color = Color(0.02, 0.02, 0.04, 0.35)
+	ground_grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle_arena.add_child(ground_grad)
+
+	var ground_line := ColorRect.new()
+	ground_line.name = "GroundLine"
+	ground_line.anchor_left = 0.04
+	ground_line.anchor_top = BattleLayout.GROUND_Y_RATIO - 0.005
+	ground_line.anchor_right = 0.96
+	ground_line.anchor_bottom = BattleLayout.GROUND_Y_RATIO + 0.005
+	ground_line.offset_left = 0
+	ground_line.offset_top = 0
+	ground_line.offset_right = 0
+	ground_line.offset_bottom = 0
+	ground_line.color = Color(0.15, 0.12, 0.2, 0.55)
+	ground_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle_arena.add_child(ground_line)
+
+	var vig_top := ColorRect.new()
+	vig_top.name = "VignetteTop"
+	vig_top.anchor_right = 1.0
+	vig_top.anchor_bottom = 0.18
+	vig_top.color = Color(0, 0, 0, 0.22)
+	vig_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle_arena.add_child(vig_top)
+
+	_wave_label = Label.new()
+	_wave_label.name = "WaveLabel"
+	_wave_label.anchor_left = 0.68
+	_wave_label.anchor_top = 0.03
+	_wave_label.anchor_right = 0.97
+	_wave_label.anchor_bottom = 0.1
+	_wave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_wave_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_wave_label.add_theme_font_size_override("font_size", 10)
+	_wave_label.add_theme_color_override("font_color", Color(0.92, 0.82, 0.55))
+	_wave_label.text = ""
+	battle_arena.add_child(_wave_label)
+
+	var nameplate := Panel.new()
+	nameplate.name = "PlayerNameplate"
+	nameplate.anchor_left = 0.01
+	nameplate.anchor_top = 0.68
+	nameplate.anchor_right = 0.40
+	nameplate.anchor_bottom = 0.97
+	nameplate.offset_left = 0
+	nameplate.offset_top = 0
+	nameplate.offset_right = 0
+	nameplate.offset_bottom = 0
+	nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nps := StyleBoxFlat.new()
+	nps.bg_color = Color(0.05, 0.04, 0.08, 0.72)
+	nps.corner_radius_top_left = 8
+	nps.corner_radius_top_right = 8
+	nps.corner_radius_bottom_left = 8
+	nps.corner_radius_bottom_right = 8
+	nps.border_width_left = 1
+	nps.border_width_right = 1
+	nps.border_width_top = 1
+	nps.border_width_bottom = 1
+	nps.border_color = Color(0.35, 0.55, 0.45, 0.55)
+	nameplate.add_theme_stylebox_override("panel", nps)
+	battle_arena.add_child(nameplate)
+	battle_arena.move_child(nameplate, player_info_overlay.get_index())
+
+	var hp_section: VBoxContainer = battle_view.get_node("HPSection")
+	if hp_section and not hp_section.get_node_or_null("ExpBackdrop"):
+		var exp_back := Panel.new()
+		exp_back.name = "ExpBackdrop"
+		exp_back.set_anchors_preset(Control.PRESET_FULL_RECT)
+		exp_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ebs := StyleBoxFlat.new()
+		ebs.bg_color = Color(0.07, 0.06, 0.11, 0.7)
+		ebs.corner_radius_top_left = 10
+		ebs.corner_radius_top_right = 10
+		ebs.corner_radius_bottom_left = 10
+		ebs.corner_radius_bottom_right = 10
+		ebs.border_width_left = 1
+		ebs.border_width_right = 1
+		ebs.border_width_top = 1
+		ebs.border_width_bottom = 1
+		ebs.border_color = Color(0.38, 0.45, 0.62, 0.5)
+		exp_back.add_theme_stylebox_override("panel", ebs)
+		hp_section.add_child(exp_back)
+		hp_section.move_child(exp_back, 0)
+	exp_text.add_theme_color_override("font_color", Color(0.65, 0.82, 0.95))
+
+	var hp_bg := StyleBoxFlat.new()
+	hp_bg.bg_color = Color(0.06, 0.06, 0.08, 0.92)
+	hp_bg.corner_radius_top_left = 4
+	hp_bg.corner_radius_top_right = 4
+	hp_bg.corner_radius_bottom_left = 4
+	hp_bg.corner_radius_bottom_right = 4
+	player_hp_bar.add_theme_stylebox_override("background", hp_bg)
+	player_hp_label.add_theme_color_override("font_color", Color(0.82, 0.92, 0.82))
+	overlay_level_label.add_theme_color_override("font_color", Color(0.72, 0.86, 0.96))
+
+	if action_row and not action_row.get_node_or_null("RowBackdrop"):
+		var row_back := Panel.new()
+		row_back.name = "RowBackdrop"
+		row_back.set_anchors_preset(Control.PRESET_FULL_RECT)
+		row_back.offset_left = -8
+		row_back.offset_top = -6
+		row_back.offset_right = 8
+		row_back.offset_bottom = 6
+		row_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var rbs := StyleBoxFlat.new()
+		rbs.bg_color = Color(0.06, 0.05, 0.09, 0.82)
+		rbs.corner_radius_top_left = 12
+		rbs.corner_radius_top_right = 12
+		rbs.corner_radius_bottom_left = 12
+		rbs.corner_radius_bottom_right = 12
+		rbs.border_width_left = 1
+		rbs.border_width_right = 1
+		rbs.border_width_top = 1
+		rbs.border_width_bottom = 1
+		rbs.border_color = Color(0.35, 0.28, 0.42, 0.6)
+		row_back.add_theme_stylebox_override("panel", rbs)
+		action_row.add_child(row_back)
+		action_row.move_child(row_back, 0)
 
 func _load_nav_icons() -> void:
 	for i in range(nav_row.get_child_count()):
@@ -278,46 +477,13 @@ func _load_nav_icons() -> void:
 				icon_rect.texture = tex
 
 func _load_player_sprite() -> void:
-	# 加载色度键Shader并应用到角色
-	var shader: Shader = load(CHROMA_KEY_SHADER)
-	if shader:
-		_player_shader_mat = ShaderMaterial.new()
-		_player_shader_mat.shader = shader
-		_player_shader_mat.set_shader_parameter("key_color", Vector3(0.0, 1.0, 0.0))
-		_player_shader_mat.set_shader_parameter("threshold", 0.45)
-		_player_shader_mat.set_shader_parameter("smoothing", 0.12)
-		player_sprite.material = _player_shader_mat
-		
-		_enemy_shader_mat = ShaderMaterial.new()
-		_enemy_shader_mat.shader = shader
-		_enemy_shader_mat.set_shader_parameter("key_color", Vector3(0.0, 1.0, 0.0))
-		_enemy_shader_mat.set_shader_parameter("threshold", 0.45)
-		_enemy_shader_mat.set_shader_parameter("smoothing", 0.12)
-		enemy_sprite.material = _enemy_shader_mat
-	
-	# 加载玩家帧动画贴图
-	for path in PLAYER_IDLE_FRAMES:
-		var tex: Texture2D = load(path)
-		if tex:
-			_player_idle_textures.append(tex)
-	for path in PLAYER_ATTACK_FRAMES:
-		var tex: Texture2D = load(path)
-		if tex:
-			_player_attack_textures.append(tex)
-	# 加载敌人帧动画贴图
-	for path in ENEMY_IDLE_FRAMES:
-		var tex: Texture2D = load(path)
-		if tex:
-			_enemy_idle_textures.append(tex)
-	for path in ENEMY_ATTACK_FRAMES:
-		var tex: Texture2D = load(path)
-		if tex:
-			_enemy_attack_textures.append(tex)
-	# 设置初始帧
-	if _player_idle_textures.size() > 0:
-		player_sprite.texture = _player_idle_textures[0]
-	if _enemy_idle_textures.size() > 0:
-		enemy_sprite.texture = _enemy_idle_textures[0]
+	call_deferred("_refresh_player_avatar")
+
+func _refresh_player_avatar() -> void:
+	if player_visual:
+		var tex: Texture2D = player_visual.get_avatar_texture()
+		if tex and player_avatar:
+			player_avatar.texture = tex
 
 # ==================== 样式工具 ====================
 func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
@@ -325,6 +491,52 @@ func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
 	bar.add_theme_stylebox_override("background", bg)
 	var f := ThemeConfig.make_bar_fill(fill_c)
 	bar.add_theme_stylebox_override("fill", f)
+
+func _style_btn_boss(btn: Button) -> void:
+	var n := StyleBoxFlat.new()
+	n.bg_color = Color(0.78, 0.24, 0.30)
+	n.corner_radius_top_left = 18
+	n.corner_radius_top_right = 18
+	n.corner_radius_bottom_left = 18
+	n.corner_radius_bottom_right = 18
+	n.shadow_color = Color(0.4, 0.08, 0.12, 0.35)
+	n.shadow_size = 4
+	n.shadow_offset = Vector2(0, 2)
+	n.content_margin_left = 18.0
+	n.content_margin_right = 18.0
+	n.content_margin_top = 10.0
+	n.content_margin_bottom = 10.0
+	btn.add_theme_stylebox_override("normal", n)
+	var h := n.duplicate()
+	h.bg_color = Color(0.88, 0.32, 0.38)
+	btn.add_theme_stylebox_override("hover", h)
+	var p := n.duplicate()
+	p.bg_color = Color(0.62, 0.16, 0.22)
+	btn.add_theme_stylebox_override("pressed", p)
+
+func _style_btn_zone(btn: Button) -> void:
+	var n := StyleBoxFlat.new()
+	n.bg_color = Color(0.10, 0.12, 0.18, 0.88)
+	n.corner_radius_top_left = 16
+	n.corner_radius_top_right = 16
+	n.corner_radius_bottom_left = 16
+	n.corner_radius_bottom_right = 16
+	n.border_width_left = 1
+	n.border_width_right = 1
+	n.border_width_top = 1
+	n.border_width_bottom = 1
+	n.border_color = Color(0.42, 0.55, 0.72, 0.55)
+	n.content_margin_left = 14.0
+	n.content_margin_right = 14.0
+	n.content_margin_top = 8.0
+	n.content_margin_bottom = 8.0
+	btn.add_theme_stylebox_override("normal", n)
+	var h := n.duplicate()
+	h.bg_color = Color(0.14, 0.16, 0.24, 0.95)
+	btn.add_theme_stylebox_override("hover", h)
+	var p := n.duplicate()
+	p.bg_color = Color(0.08, 0.09, 0.14, 0.95)
+	btn.add_theme_stylebox_override("pressed", p)
 
 func _style_btn_primary(btn: Button) -> void:
 	var n := ThemeConfig.make_btn_primary()
@@ -399,125 +611,114 @@ func _highlight_tab() -> void:
 func _idle_animation(delta: float) -> void:
 	if _atk_anim_playing:
 		return
-	# 帧动画切换
 	_frame_timer += delta
 	if _frame_timer >= FRAME_DURATION:
 		_frame_timer = 0.0
 		_current_frame += 1
-		# 玩家idle帧切换
-		if _player_idle_textures.size() > 0:
-			player_sprite.texture = _player_idle_textures[_current_frame % _player_idle_textures.size()]
-		# 敌人Idle帧切换
-		if _enemy_idle_textures.size() > 0:
-			enemy_sprite.texture = _enemy_idle_textures[_current_frame % _enemy_idle_textures.size()]
-	# 呼吸浮动动画
+		if player_visual:
+			player_visual.set_idle_frame(_current_frame)
+	if player_visual:
+		player_visual.apply_idle_motion(_idle_phase)
 	_idle_phase += delta * 2.5
-	player_sprite.position.y = sin(_idle_phase) * 4.0
-	enemy_sprite.position.y = sin(_idle_phase * 0.85 + 1.0) * 4.0
-	# 微缩放呼吸感
-	var breath_scale: float = 1.0 + sin(_idle_phase * 1.5) * 0.015
-	player_sprite.scale = Vector2(breath_scale, breath_scale)
-	enemy_sprite.scale = Vector2(breath_scale, breath_scale)
+
+func _get_arena_size() -> Vector2:
+	var sz: Vector2 = enemy_container.size
+	if sz.x < 80.0:
+		sz = battle_arena.size
+	if sz.x < 80.0:
+		sz = Vector2(680, 360)
+	return sz
 
 # ---------- 玩家攻击: 切换攻击帧 + 冲刺 + 斩击弧光 ----------
 func _play_player_attack() -> void:
 	if _atk_anim_playing:
 		return
+	var ps := _get_player_sprite()
+	if not ps or not player_visual:
+		return
 	_atk_anim_playing = true
-	var orig_x: float = player_sprite.position.x
-	var orig_y: float = player_sprite.position.y
-	# 切换为攻击帧
-	if _player_attack_textures.size() > 0:
-		player_sprite.texture = _player_attack_textures[0]
+	var orig_mo: Vector2 = player_visual.motion_offset
+	if player_visual:
+		player_visual.play_attack_frame()
 	var tw := create_tween()
-	# Phase 1: 蓄力后仰(0.06s)
-	tw.tween_property(player_sprite, "rotation", -0.12, 0.06).set_ease(Tween.EASE_IN)
-	# Phase 2: 冲刺前倾(0.08s)
-	tw.tween_property(player_sprite, "position:x", orig_x + 50, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tw.parallel().tween_property(player_sprite, "rotation", 0.15, 0.08).set_ease(Tween.EASE_OUT)
-	# Phase 3: 命中瞬间 - 触发特效
+	tw.tween_property(ps, "rotation", -0.12, 0.06).set_ease(Tween.EASE_IN)
+	tw.tween_property(player_visual, "motion_offset", orig_mo + Vector2(50, 0), 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(ps, "rotation", 0.15, 0.08).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(_spawn_slash_arc)
-	tw.tween_callback(_shake_enemy)
-	tw.tween_callback(_flash_enemy_hit)
+	var target_id := GameManager.current_target_id
+	if _enemy_units.has(target_id):
+		tw.tween_callback(func(): _enemy_units[target_id].play_hit())
 	tw.tween_callback(_spawn_hit_sparks)
-	# Phase 4: 回弹(0.18s)
-	tw.tween_property(player_sprite, "position:x", orig_x, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
-	tw.parallel().tween_property(player_sprite, "rotation", 0.0, 0.15).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player_sprite, "position:y", orig_y, 0.12)
-	# Phase 5: 落地微蹲 + 恢复idle帧
-	tw.tween_property(player_sprite, "scale", Vector2(1.05, 0.95), 0.05)
-	tw.tween_property(player_sprite, "scale", Vector2(1.0, 1.0), 0.08).set_ease(Tween.EASE_OUT)
+	tw.tween_property(player_visual, "motion_offset", orig_mo, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	tw.parallel().tween_property(ps, "rotation", 0.0, 0.15).set_ease(Tween.EASE_OUT)
+	tw.tween_property(player_visual, "motion_scale", Vector2(1.05, 0.95), 0.05)
+	tw.tween_property(player_visual, "motion_scale", Vector2.ONE, 0.08).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(_restore_idle_frames)
 	tw.tween_callback(func(): _atk_anim_playing = false)
 
-# ---------- 敌人攻击: 切换攻击帧 + 蓄力 + 冲击 ----------
 func _play_enemy_attack() -> void:
 	if _atk_anim_playing:
 		return
 	_atk_anim_playing = true
-	var orig_x: float = enemy_sprite.position.x
-	var orig_y: float = enemy_sprite.position.y
-	# 切换为敌人攻击帧
-	if _enemy_attack_textures.size() > 0:
-		enemy_sprite.texture = _enemy_attack_textures[0]
+	var attacker: BattleEnemyUnit = _pick_attacking_enemy()
+	if attacker:
+		attacker.play_attack_toward(100)
+		_spawn_enemy_claw_slash(attacker)
 	var tw := create_tween()
-	# Phase 1: 蓄力 - 身体膨胀+发光(0.2s)
-	tw.tween_property(enemy_sprite, "scale", Vector2(1.15, 1.15), 0.12).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(enemy_sprite, "modulate", Color(1.4, 0.7, 0.7, 1.0), 0.12)
-	# Phase 2: 蓄力闪烁
-	tw.tween_property(enemy_sprite, "modulate", Color(1.0, 1.0, 1.0, 0.6), 0.05)
-	tw.tween_property(enemy_sprite, "modulate", Color(1.5, 0.5, 0.5, 1.0), 0.05)
-	# Phase 3: 冲击(0.08s)
-	tw.tween_property(enemy_sprite, "position:x", orig_x - 55, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tw.parallel().tween_property(enemy_sprite, "rotation", -0.12, 0.08)
-	# Phase 4: 命中 - 触发特效
+	tw.tween_interval(0.06)
 	tw.tween_callback(_shake_player)
 	tw.tween_callback(_flash_player_hit)
 	tw.tween_callback(_spawn_enemy_skill_effect)
-	# Phase 5: 回弹(0.2s)
-	tw.tween_property(enemy_sprite, "position:x", orig_x, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
-	tw.parallel().tween_property(enemy_sprite, "rotation", 0.0, 0.15)
-	tw.parallel().tween_property(enemy_sprite, "modulate", Color(1, 1, 1, 1), 0.15)
-	tw.parallel().tween_property(enemy_sprite, "scale", Vector2(1.0, 1.0), 0.15)
-	tw.parallel().tween_property(enemy_sprite, "position:y", orig_y, 0.12)
-	# 恢夏idle帧
-	tw.tween_callback(_restore_idle_frames)
+	tw.tween_interval(0.28)
 	tw.tween_callback(func(): _atk_anim_playing = false)
+
+func _pick_attacking_enemy() -> BattleEnemyUnit:
+	if _boss_unit and is_instance_valid(_boss_unit):
+		return _boss_unit
+	for eid in _enemy_units:
+		var u: BattleEnemyUnit = _enemy_units[eid]
+		if is_instance_valid(u):
+			return u
+	return null
+
+func _spawn_enemy_claw_slash(attacker: BattleEnemyUnit) -> void:
+	var slash := Label.new()
+	slash.text = "✦"
+	slash.add_theme_font_size_override("font_size", 28)
+	slash.add_theme_color_override("font_color", Color(0.95, 0.35, 0.30, 0.9))
+	slash.position = attacker.position + Vector2(-18, 38)
+	slash.z_index = 8
+	enemy_container.add_child(slash)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(slash, "position:x", slash.position.x - 22, 0.12)
+	tw.tween_property(slash, "modulate:a", 0.0, 0.18)
+	tw.tween_property(slash, "scale", Vector2(1.4, 1.4), 0.08)
+	tw.set_parallel(false)
+	tw.tween_callback(slash.queue_free)
 
 # ---------- 帧动画辅助函数 ----------
 func _restore_idle_frames() -> void:
-	if _player_idle_textures.size() > 0:
-		player_sprite.texture = _player_idle_textures[0]
-	if _enemy_idle_textures.size() > 0:
-		enemy_sprite.texture = _enemy_idle_textures[0]
-
-# ---------- 受击闪白 ----------
-func _flash_enemy_hit() -> void:
-	var tw := create_tween()
-	tw.tween_property(enemy_sprite, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
-	tw.tween_property(enemy_sprite, "modulate", Color(1, 1, 1, 1), 0.12)
+	if player_visual:
+		player_visual.restore_idle_frame()
 
 func _flash_player_hit() -> void:
+	var ps := _get_player_sprite()
+	if not ps:
+		return
 	var tw := create_tween()
-	tw.tween_property(player_sprite, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
-	tw.tween_property(player_sprite, "modulate", Color(1, 1, 1, 1), 0.12)
-
-# ---------- 抖动 ----------
-func _shake_enemy() -> void:
-	var orig := enemy_sprite.position
-	var tw := create_tween()
-	for n in range(5):
-		var offset := Vector2(randf_range(-6, 6), randf_range(-4, 4))
-		tw.tween_property(enemy_sprite, "position", orig + offset, 0.025)
-	tw.tween_property(enemy_sprite, "position", orig, 0.04)
+	tw.tween_property(ps, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
+	tw.tween_property(ps, "modulate", Color(1, 1, 1, 1), 0.12)
 
 func _shake_player() -> void:
-	var orig := player_sprite.position
+	if not player_visual:
+		return
+	var orig: Vector2 = player_visual.motion_offset
 	var tw := create_tween()
 	for n in range(5):
 		var offset := Vector2(randf_range(-6, 6), randf_range(-4, 4))
-		tw.tween_property(player_sprite, "position", orig + offset, 0.025)
-	tw.tween_property(player_sprite, "position", orig, 0.04)
+		tw.tween_property(player_visual, "motion_offset", orig + offset, 0.025)
+	tw.tween_property(player_visual, "motion_offset", orig, 0.04)
 
 # ---------- 斩击弧光特效(玩家攻击时) ----------
 func _spawn_slash_arc() -> void:
@@ -606,6 +807,8 @@ func _spawn_enemy_skill_effect() -> void:
 
 # ==================== 标签切换 ====================
 func _switch_tab(t: int) -> void:
+	if current_tab == 0 and t != 0 and loot_dialog.visible:
+		loot_dialog._on_continue()
 	current_tab = t
 	_highlight_tab()
 	AudioManager.play_sfx("button")
@@ -614,7 +817,7 @@ func _switch_tab(t: int) -> void:
 			battle_view.visible = true
 			panel_view.visible = false
 		1: _open_panel("角色", ["装备", "技能", "天赋", "宠物"], "装备")
-		2: _open_panel("冒险", ["路线图", "深渊塔"], "路线图")
+		2: _open_panel("冒险", ["世界地图", "深渊塔"], "世界地图")
 		3: _open_panel("工坊", ["锻造", "强化"], "锻造")
 		4: _open_panel("更多", ["任务", "每日", "商店", "成就"], "任务")
 
@@ -644,6 +847,10 @@ func _close_panel() -> void:
 
 func _on_sub(sub_name: String) -> void:
 	current_sub = sub_name
+	if _equip_tooltip:
+		_equip_tooltip.hide_tooltip()
+	if _equip_compare and _equip_compare.visible:
+		_equip_compare.dismiss()
 	for btn in sub_tab_bar.get_children():
 		if btn is Button:
 			if btn.text == sub_name:
@@ -654,12 +861,13 @@ func _on_sub(sub_name: String) -> void:
 				btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 	for c in item_list.get_children():
 		c.queue_free()
+	_reset_panel_list_layout()
 	match sub_name:
 		"装备": _build_equipment()
 		"技能": _build_skills()
 		"天赋": _build_talents()
 		"宠物": _build_pets()
-		"路线图": _build_route_map()
+		"世界地图": _build_route_map()
 		"深渊塔": _build_tower()
 		"锻造": _build_craft()
 		"强化": _build_enhance()
@@ -670,15 +878,18 @@ func _on_sub(sub_name: String) -> void:
 
 # ==================== 战斗界面更新 ====================
 func _update_battle(_delta: float) -> void:
-	if GameManager.enemy_max_hp > 0:
-		enemy_hp_bar.max_value = GameManager.enemy_max_hp
-		enemy_hp_bar.value = maxi(0, GameManager.enemy_hp)
-		enemy_hp_label.text = "%d/%d" % [maxi(0, GameManager.enemy_hp), GameManager.enemy_max_hp]
-	if GameManager.is_boss_fight:
-		enemy_name_label.text = "💀 %s" % GameManager.current_boss.get("name", "Boss")
-	else:
-		enemy_name_label.text = GameManager.current_enemy.get("name", "")
-	# 伤害浮字 + 攻击动画
+	var combat: Dictionary = GameManager.game_data["combat"]
+	player_hp_bar.max_value = combat["max_hp"]
+	player_hp_bar.value = GameManager.player_hp
+	player_hp_label.text = "%d/%d" % [GameManager.player_hp, combat["max_hp"]]
+	overlay_level_label.text = "Lv.%d" % GameManager.game_data["player"]["level"]
+	var p: Dictionary = GameManager.game_data["player"]
+	var need: int = DataManager.exp_for_level(int(p["level"]))
+	exp_bar.max_value = need
+	exp_bar.value = int(p["exp"])
+	exp_pct.text = "%.0f%%" % (float(p["exp"]) / float(maxi(1, need)) * 100.0)
+	if GameManager.is_boss_fight and _boss_unit:
+		_boss_unit.update_hp(GameManager.enemy_hp, GameManager.enemy_max_hp)
 	if GameManager.enemy_hp < _prev_ehp and _prev_ehp > 0:
 		var dmg: int = _prev_ehp - GameManager.enemy_hp
 		_float_dmg(str(dmg), ThemeConfig.ACCENT_ORANGE if dmg > 50 else ThemeConfig.TXT_PRIMARY, true, dmg > 100)
@@ -689,17 +900,6 @@ func _update_battle(_delta: float) -> void:
 		_play_enemy_attack()
 	_prev_ehp = GameManager.enemy_hp
 	_prev_php = GameManager.player_hp
-	# 玩家信息
-	var combat: Dictionary = GameManager.game_data["combat"]
-	player_hp_bar.max_value = combat["max_hp"]
-	player_hp_bar.value = GameManager.player_hp
-	player_hp_label.text = "%d/%d" % [GameManager.player_hp, combat["max_hp"]]
-	player_name_label.text = "Lv.%d" % GameManager.game_data["player"]["level"]
-	var p: Dictionary = GameManager.game_data["player"]
-	var need: int = DataManager.exp_for_level(int(p["level"]))
-	exp_bar.max_value = need
-	exp_bar.value = int(p["exp"])
-	exp_pct.text = "%.0f%%" % (float(p["exp"]) / float(maxi(1, need)) * 100.0)
 
 func _float_dmg(text: String, color: Color, is_enemy: bool, big: bool) -> void:
 	var l := Label.new()
@@ -710,11 +910,9 @@ func _float_dmg(text: String, color: Color, is_enemy: bool, big: bool) -> void:
 	# 伤害数字直接显示在角色身上(战斗区域内)
 	var battle_rect: Rect2 = battle_arena.get_rect()
 	if is_enemy:
-		# 敌人位置(右侧)
-		l.position = Vector2(battle_arena.size.x * 0.72 + randf_range(-20, 20), battle_arena.size.y * 0.15 + randf_range(-10, 10))
+		l.position = Vector2(battle_arena.size.x * 0.68 + randf_range(-20, 20), battle_arena.size.y * 0.52 + randf_range(-12, 12))
 	else:
-		# 玩家位置(左侧)
-		l.position = Vector2(battle_arena.size.x * 0.18 + randf_range(-20, 20), battle_arena.size.y * 0.15 + randf_range(-10, 10))
+		l.position = Vector2(battle_arena.size.x * 0.16 + randf_range(-20, 20), battle_arena.size.y * 0.52 + randf_range(-12, 12))
 	l.z_index = 10
 	effect_layer.add_child(l)
 	var tw := create_tween()
@@ -745,84 +943,58 @@ func _refresh_zone() -> void:
 		zone_bg.texture = bg_tex
 
 
-# ==================== 路线图系统(纵向分支) ====================
+# ==================== 冒险世界地图 ====================
+func _reset_panel_list_layout() -> void:
+	var margin := item_list.get_parent() as MarginContainer
+	if margin:
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_top", 8)
+		margin.add_theme_constant_override("margin_bottom", 12)
+	var scroll := _get_panel_scroll()
+	if scroll:
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+func _set_map_panel_layout() -> void:
+	var margin := item_list.get_parent() as MarginContainer
+	if margin:
+		margin.add_theme_constant_override("margin_left", 0)
+		margin.add_theme_constant_override("margin_right", 0)
+		margin.add_theme_constant_override("margin_top", 0)
+		margin.add_theme_constant_override("margin_bottom", 0)
+	var scroll := _get_panel_scroll()
+	if scroll:
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+func _get_panel_scroll() -> ScrollContainer:
+	var n: Node = item_list
+	while n:
+		if n is ScrollContainer:
+			return n as ScrollContainer
+		n = n.get_parent()
+	return null
+
 func _build_route_map() -> void:
+	_set_map_panel_layout()
 	var d: Dictionary = GameManager.game_data
 	var cur: int = int(d["zone"]["current"])
 	var unl: int = int(d["zone"]["unlocked"])
-	_section_header("冒险路线")
-	# 从上到下显示各区域(当前→已解锁→锁定)
-	for i in range(mini(unl + 2, DataManager.ZONES.size()) - 1, -1, -1):
-		var z: Dictionary = DataManager.ZONES[i]
-		var is_cur: bool = (i == cur)
-		var locked: bool = (i > unl)
-		var card := _make_card(ThemeConfig.PRIMARY if is_cur else (ThemeConfig.TXT_DISABLED if locked else ThemeConfig.SECONDARY))
-		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", 6)
-		card.add_child(vbox)
-		# 标题行
-		var hrow := HBoxContainer.new()
-		hrow.add_theme_constant_override("separation", 8)
-		var stage_label := Label.new()
-		stage_label.text = "%s %s" % ["▶" if is_cur else ("🔒" if locked else "●"), z["name"]]
-		stage_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stage_label.add_theme_font_size_override("font_size", 13)
-		if locked:
-			stage_label.add_theme_color_override("font_color", ThemeConfig.TXT_DISABLED)
-		elif is_cur:
-			stage_label.add_theme_color_override("font_color", ThemeConfig.PRIMARY)
-		else:
-			stage_label.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
-		hrow.add_child(stage_label)
-		var lv_label := Label.new()
-		lv_label.text = "Lv.%d-%d" % [z["min_lv"], z["max_lv"]]
-		lv_label.add_theme_font_size_override("font_size", 10)
-		lv_label.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-		hrow.add_child(lv_label)
-		vbox.add_child(hrow)
-		# 节点行(模拟路线节点)
-		if not locked:
-			var node_row := HBoxContainer.new()
-			node_row.add_theme_constant_override("separation", 6)
-			var enemies: Array = z["enemies"]
-			for ei in range(mini(enemies.size(), 4)):
-				var node_btn := Button.new()
-				node_btn.text = "⚔ %s" % enemies[ei]
-				node_btn.add_theme_font_size_override("font_size", 9)
-				_style_btn_light(node_btn)
-				node_btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-				node_row.add_child(node_btn)
-			vbox.add_child(node_row)
-			# Boss节点
-			var boss_row := HBoxContainer.new()
-			boss_row.add_theme_constant_override("separation", 8)
-			var boss_btn2 := Button.new()
-			boss_btn2.text = "💀 %s" % z["boss"]["name"]
-			boss_btn2.add_theme_font_size_override("font_size", 10)
-			_style_btn_outline(boss_btn2, ThemeConfig.ENEMY_RED)
-			boss_btn2.add_theme_color_override("font_color", ThemeConfig.ENEMY_RED)
-			boss_row.add_child(boss_btn2)
-			vbox.add_child(boss_row)
-		# 前往按钮
-		if not locked and not is_cur:
-			var go_btn := Button.new()
-			go_btn.text = "前往"
-			go_btn.add_theme_font_size_override("font_size", 11)
-			_style_btn_primary(go_btn)
-			go_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
-			go_btn.custom_minimum_size = Vector2(80, 32)
-			var zi2: int = i
-			go_btn.pressed.connect(func(): GameManager.change_zone(zi2); _on_sub("路线图"))
-			vbox.add_child(go_btn)
-		item_list.add_child(card)
-		# 连接线(视觉)
-		if i > 0:
-			var conn := Label.new()
-			conn.text = "│"
-			conn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			conn.add_theme_font_size_override("font_size", 14)
-			conn.add_theme_color_override("font_color", ThemeConfig.TXT_DISABLED)
-			item_list.add_child(conn)
+	var map_view := AdventureMapView.new()
+	map_view.setup(cur, unl)
+	map_view.zone_selected.connect(_on_map_zone_selected)
+	map_view.tower_requested.connect(func(): _on_sub("深渊塔"))
+	item_list.add_child(map_view)
+	map_view.call_deferred("scroll_to_zone", cur)
+
+func _on_map_zone_selected(zone_idx: int) -> void:
+	if zone_idx > int(GameManager.game_data["zone"]["unlocked"]):
+		GameManager.toast_message.emit("击败区域 Boss 后解锁", ThemeConfig.TXT_DISABLED)
+		return
+	if zone_idx == int(GameManager.game_data["zone"]["current"]):
+		return
+	if GameManager.change_zone(zone_idx):
+		AudioManager.play_sfx("button")
+		_on_sub("世界地图")
 
 # ==================== 角色概览 ====================
 func _build_character_overview(d: Dictionary) -> void:
@@ -881,19 +1053,106 @@ func _build_character_overview(d: Dictionary) -> void:
 # ==================== 面板构建 ====================
 func _build_equipment() -> void:
 	var d: Dictionary = GameManager.game_data
-	# 角色概览卡片
-	_build_character_overview(d)
+	_build_equipment_hero_strip(d)
 	_section_header("已装备")
+	_hint_text("悬停查看属性 · 双击背包装备对比 · 双击已装备卸下")
+	var equip_grid := GridContainer.new()
+	equip_grid.columns = 3
+	equip_grid.add_theme_constant_override("h_separation", 10)
+	equip_grid.add_theme_constant_override("v_separation", 10)
+	item_list.add_child(equip_grid)
 	for sk in d["equipment"]:
-		var item = d["equipment"][sk]
 		var si: int = int(sk)
-		var sn: String = DataManager.SLOT_NAMES[si as DataManager.SlotType]
-		item_list.add_child(_card_equip(sn, item, si))
+		var item = d["equipment"][sk]
+		var cell := _make_equip_slot_cell(si, item, true)
+		equip_grid.add_child(cell)
 	_section_header("背包 (%d/%d)" % [d["inventory"].size(), int(d["inventory_max"])])
 	if d["inventory"].is_empty():
 		_hint_text("击杀怪物获取装备掉落")
-	for item in d["inventory"]:
-		item_list.add_child(_card_bag(item))
+	else:
+		var bag_grid := GridContainer.new()
+		bag_grid.columns = 4
+		bag_grid.add_theme_constant_override("h_separation", 8)
+		bag_grid.add_theme_constant_override("v_separation", 8)
+		item_list.add_child(bag_grid)
+		for item in d["inventory"]:
+			bag_grid.add_child(_make_equip_slot_cell(-1, item, false))
+
+func _build_equipment_hero_strip(d: Dictionary) -> void:
+	var combat: Dictionary = d["combat"]
+	var player: Dictionary = d["player"]
+	var card := _make_card(ThemeConfig.PRIMARY)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+	var avatar := TextureRect.new()
+	avatar.custom_minimum_size = Vector2(56, 56)
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	if player_visual:
+		var tex: Texture2D = player_visual.get_avatar_texture()
+		if tex:
+			avatar.texture = tex
+	row.add_child(avatar)
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 4)
+	var name_l := Label.new()
+	name_l.text = "Lv.%d  暗影行者" % int(player["level"])
+	name_l.add_theme_font_size_override("font_size", 14)
+	name_l.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
+	info.add_child(name_l)
+	var stats_l := Label.new()
+	stats_l.text = "⚔%d  🛡%d  ❤%d  ✦%d%%" % [combat["atk"], combat["def"], combat["max_hp"], combat["crit"]]
+	stats_l.add_theme_font_size_override("font_size", 10)
+	stats_l.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	info.add_child(stats_l)
+	row.add_child(info)
+	item_list.add_child(card)
+
+func _make_equip_slot_cell(slot_i: int, item, is_equipped_row: bool) -> VBoxContainer:
+	var cell := VBoxContainer.new()
+	cell.add_theme_constant_override("separation", 2)
+	var slot := EquipItemSlot.new()
+	if is_equipped_row:
+		if item == null:
+			slot.setup_empty(slot_i, DataManager.SLOT_NAMES[slot_i as DataManager.SlotType])
+		else:
+			slot.setup_item(item, true)
+			_wire_equip_slot(slot, true)
+	else:
+		slot.setup_item(item, false)
+		_wire_equip_slot(slot, false)
+	cell.add_child(slot)
+	return cell
+
+func _wire_equip_slot(slot: EquipItemSlot, is_equipped: bool) -> void:
+	slot.slot_hovered.connect(func(it: Dictionary, pos: Vector2):
+		if _equip_tooltip:
+			_equip_tooltip.show_item(it, pos))
+	slot.slot_unhovered.connect(func():
+		if _equip_tooltip:
+			_equip_tooltip.hide_tooltip())
+	slot.slot_double_clicked.connect(func(it: Dictionary):
+		_on_equip_slot_double_click(it, is_equipped))
+
+func _on_equip_slot_double_click(item: Dictionary, is_equipped: bool) -> void:
+	if item.is_empty():
+		return
+	if is_equipped:
+		GameManager.unequip_item(int(item["slot"]))
+		_on_sub("装备")
+		return
+	var slot_key := DataManager.item_slot_key(item)
+	var current = GameManager.game_data["equipment"].get(slot_key)
+	if _equip_compare:
+		_equip_compare.open(item, current if current != null else {})
+	if _equip_tooltip:
+		_equip_tooltip.hide_tooltip()
+
+func _on_equip_compare_confirm(item: Dictionary) -> void:
+	GameManager.equip_item(item)
+	_on_sub("装备")
 
 func _build_skills() -> void:
 	var d: Dictionary = GameManager.game_data
@@ -1032,6 +1291,36 @@ func _make_card(accent_color: Color) -> PanelContainer:
 	card.add_theme_stylebox_override("panel", s)
 	return card
 
+func _make_list_icon(tex_path: String, border_color: Color, dimmed: bool = false) -> PanelContainer:
+	var badge := PanelContainer.new()
+	badge.custom_minimum_size = Vector2(52, 52)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.08, 0.07, 0.10, 0.92)
+	s.border_width_left = 2
+	s.border_width_right = 2
+	s.border_width_top = 2
+	s.border_width_bottom = 2
+	s.border_color = Color(border_color.r, border_color.g, border_color.b, 0.35 if dimmed else 0.85)
+	s.corner_radius_top_left = 8
+	s.corner_radius_top_right = 8
+	s.corner_radius_bottom_left = 8
+	s.corner_radius_bottom_right = 8
+	badge.add_theme_stylebox_override("panel", s)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	badge.add_child(center)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(38, 38)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex: Texture2D = AssetRegistry.load_texture(tex_path)
+	if tex:
+		icon.texture = tex
+	icon.modulate = Color(1, 1, 1, 0.35 if dimmed else 1.0)
+	center.add_child(icon)
+	return badge
+
 func _card_equip(slot: String, item, slot_i: int) -> PanelContainer:
 	var accent: Color = ThemeConfig.TXT_DISABLED
 	if item != null:
@@ -1099,19 +1388,27 @@ func _card_bag(item: Dictionary) -> PanelContainer:
 	return card
 
 func _card_skill(sid: String, sk: Dictionary, lv: int, plv: int, eq: Array) -> PanelContainer:
-	var card := _make_card(sk["color"] if lv > 0 else ThemeConfig.TXT_DISABLED)
+	var unlocked: bool = plv >= int(sk["unlock_lv"])
+	var active: bool = lv > 0
+	var equipped: bool = sid in eq
+	var accent: Color = sk["color"] if active else ThemeConfig.TXT_DISABLED
+	var card := _make_card(accent if active else ThemeConfig.TXT_DISABLED)
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 6)
+	hbox.add_theme_constant_override("separation", 8)
 	card.add_child(hbox)
+	hbox.add_child(_make_list_icon(AssetRegistry.get_skill_icon(sid), accent, not active))
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var nl := Label.new()
-	nl.text = "%s Lv.%d" % [sk["name"], lv]
+	nl.text = "%s Lv.%d%s" % [sk["name"], lv, " · 已装备" if equipped else ""]
 	nl.add_theme_font_size_override("font_size", 12)
-	nl.add_theme_color_override("font_color", sk["color"] if lv > 0 else ThemeConfig.TXT_DISABLED)
+	nl.add_theme_color_override("font_color", accent)
 	info.add_child(nl)
 	var dl := Label.new()
-	dl.text = "%s · CD:%.1fs" % [sk["type"], sk["cooldown"]]
+	if unlocked:
+		dl.text = "%s · CD:%.1fs" % [sk["type"], sk["cooldown"]]
+	else:
+		dl.text = "Lv.%d 解锁" % int(sk["unlock_lv"])
 	dl.add_theme_font_size_override("font_size", 9)
 	dl.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 	info.add_child(dl)
@@ -1173,10 +1470,13 @@ func _card_talent(t: Dictionary, d: Dictionary, tp: int) -> PanelContainer:
 func _card_pet(pid: String, pd: Dictionary, ap: String) -> PanelContainer:
 	var pet: Dictionary = PetSystem.PETS[pid]
 	var active: bool = (pid == ap)
-	var card := _make_card(pet["color"] if active else ThemeConfig.TXT_DISABLED)
+	var ri: Dictionary = DataManager.RARITY_INFO[int(pet["rarity"]) as DataManager.Rarity]
+	var accent: Color = ri["color"] if active else ThemeConfig.TXT_DISABLED
+	var card := _make_card(accent if active else ThemeConfig.TXT_DISABLED)
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 6)
+	hbox.add_theme_constant_override("separation", 8)
 	card.add_child(hbox)
+	hbox.add_child(_make_list_icon(AssetRegistry.get_pet_icon(pid), accent, not active))
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var nl := Label.new()
@@ -1184,6 +1484,12 @@ func _card_pet(pid: String, pd: Dictionary, ap: String) -> PanelContainer:
 	nl.add_theme_font_size_override("font_size", 12)
 	nl.add_theme_color_override("font_color", pet["color"])
 	info.add_child(nl)
+	var dl := Label.new()
+	dl.text = "[%s] %s" % [ri["name"], pet["desc"]]
+	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dl.add_theme_font_size_override("font_size", 9)
+	dl.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	info.add_child(dl)
 	hbox.add_child(info)
 	var ps2: PetSystem = GameManager.pet_system
 	var ub := Button.new()
@@ -1428,6 +1734,8 @@ func _hint_text(text: String) -> void:
 
 func _on_boss() -> void:
 	GameManager.start_boss_fight()
+	GameManager.current_enemy = {"name": GameManager.current_boss.get("name", "Boss")}
+	_spawn_boss_unit()
 	_shake_t = 0.35
 	AudioManager.play_sfx("boss")
 
@@ -1487,103 +1795,135 @@ func _fmt(n: int) -> String:
 		return "%.1fK" % (n / 1000.0)
 	return str(n)
 
-# ==================== 战斗奖励弹窗 ====================
-var _reward_popup_timer := 0.0
-var _reward_popup_active := false
+# ==================== 波次战斗 UI ====================
+func _on_wave_started(enemies: Array) -> void:
+	_clear_enemy_units()
+	_spawn_queue = enemies.duplicate(true)
+	_spawn_delay = 0.0
+	_prev_ehp = 0
+	_prev_php = GameManager.player_hp
+	if _wave_label:
+		_wave_label.text = "× %d" % enemies.size()
 
-func _show_battle_rewards(enemy_name: String, rewards: Dictionary) -> void:
-	# 只有有材料或装备掉落时才显示弹窗，普通金币经验用飘字
-	var has_drops: bool = rewards.has("material") or rewards.has("item")
-	
-	# 经验金币飘字(每次都显示)
-	var reward_text := "+%s💰 +%sEXP" % [_fmt(int(rewards["gold"])), _fmt(int(rewards["exp"]))]
-	_spawn_reward_float(reward_text, ThemeConfig.ACCENT_GOLD)
-	
-	# 有特殊掉落时显示弹窗
-	if has_drops:
-		_spawn_reward_popup(enemy_name, rewards)
+func _process_spawn_queue(delta: float) -> void:
+	if _spawn_queue.is_empty():
+		return
+	_spawn_delay -= delta
+	if _spawn_delay > 0:
+		return
+	var enemy: Dictionary = _spawn_queue.pop_front()
+	_spawn_enemy_unit(enemy)
+	_spawn_delay = SPAWN_STAGGER if not _spawn_queue.is_empty() else 0.0
 
-func _spawn_reward_float(text: String, color: Color) -> void:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", 12)
-	l.add_theme_color_override("font_color", color)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.position = Vector2(effect_layer.size.x * 0.3, effect_layer.size.y * 0.9)
-	effect_layer.add_child(l)
-	var tw := create_tween()
-	tw.tween_property(l, "position:y", l.position.y - 30.0, 0.6).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.4)
-	tw.tween_callback(l.queue_free)
+func _spawn_enemy_unit(enemy: Dictionary) -> void:
+	var zone_idx: int = GameManager.game_data["zone"]["current"]
+	var tex_path: String = AssetRegistry.get_enemy_texture(enemy["name"], zone_idx)
+	var arena_size: Vector2 = _get_arena_size()
+	var unit := BattleEnemyUnit.new()
+	enemy_container.add_child(unit)
+	var eid: int = int(enemy["id"])
+	_enemy_units[eid] = unit
+	unit.setup(enemy, tex_path, arena_size, false)
+	unit.enter_finished.connect(func(): GameManager.battle_wave.activate_enemy(eid))
+	unit.play_enter()
 
-func _spawn_reward_popup(enemy_name: String, rewards: Dictionary) -> void:
-	var popup := PanelContainer.new()
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.12, 0.08, 0.2, 0.92)
-	s.corner_radius_top_left = 14
-	s.corner_radius_top_right = 14
-	s.corner_radius_bottom_left = 14
-	s.corner_radius_bottom_right = 14
-	s.border_width_left = 2
-	s.border_width_right = 2
-	s.border_width_top = 2
-	s.border_width_bottom = 2
-	s.border_color = ThemeConfig.ACCENT_GOLD
-	s.shadow_color = Color(0, 0, 0, 0.3)
-	s.shadow_size = 6
-	s.content_margin_left = 16.0
-	s.content_margin_right = 16.0
-	s.content_margin_top = 12.0
-	s.content_margin_bottom = 12.0
-	popup.add_theme_stylebox_override("panel", s)
-	
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	
-	# 标题
-	var title := Label.new()
-	title.text = "✨ 战利品 ✨"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 13)
-	title.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
-	vbox.add_child(title)
-	
-	# 金币+经验
-	var gold_line := Label.new()
-	gold_line.text = "💰 +%s  ✨ +%s EXP" % [_fmt(int(rewards["gold"])), _fmt(int(rewards["exp"]))]
-	gold_line.add_theme_font_size_override("font_size", 11)
-	gold_line.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
-	vbox.add_child(gold_line)
-	
-	# 材料
-	if rewards.has("material"):
-		var mat_line := Label.new()
-		var mat_name: String = DataManager.MATERIALS.get(rewards["material"], {}).get("name", rewards["material"])
-		mat_line.text = "🔮 %s x1" % mat_name
-		mat_line.add_theme_font_size_override("font_size", 11)
-		mat_line.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
-		vbox.add_child(mat_line)
-	
-	# 装备
-	if rewards.has("item"):
-		var item: Dictionary = rewards["item"]
-		var item_line := Label.new()
-		var rarity_colors: Array = [Color.WHITE, Color(0.3, 0.9, 0.3), Color(0.3, 0.6, 1.0), Color(0.8, 0.3, 1.0), Color(1.0, 0.8, 0.2)]
-		var rc: Color = rarity_colors[mini(int(item["rarity"]), 4)]
-		item_line.text = "⚔️ %s" % item["name"]
-		item_line.add_theme_font_size_override("font_size", 11)
-		item_line.add_theme_color_override("font_color", rc)
-		vbox.add_child(item_line)
-	
-	popup.add_child(vbox)
-	popup.position = Vector2(60, 200)
-	popup.modulate.a = 0.0
-	add_child(popup)
-	
-	# 动画: 淡入 → 停留 → 淡出
-	var tw := create_tween()
-	tw.tween_property(popup, "modulate:a", 1.0, 0.2)
-	tw.tween_property(popup, "position:y", 190.0, 0.2).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(1.8)
-	tw.tween_property(popup, "modulate:a", 0.0, 0.4)
-	tw.tween_callback(popup.queue_free)
+func _on_enemy_hp_changed(enemy_id: int, hp: int, max_hp: int) -> void:
+	if _enemy_units.has(enemy_id):
+		_enemy_units[enemy_id].update_hp(hp, max_hp)
+
+func _on_enemy_unit_died(enemy_id: int, _enemy: Dictionary) -> void:
+	if _enemy_units.has(enemy_id):
+		var unit: BattleEnemyUnit = _enemy_units[enemy_id]
+		_enemy_units.erase(enemy_id)
+		unit.play_death()
+
+func _clear_enemy_units() -> void:
+	for eid in _enemy_units:
+		var unit: BattleEnemyUnit = _enemy_units[eid]
+		if is_instance_valid(unit):
+			unit.queue_free()
+	_enemy_units.clear()
+	if _boss_unit and is_instance_valid(_boss_unit):
+		_boss_unit.queue_free()
+	_boss_unit = null
+
+func _on_wave_cleared(rewards: Dictionary) -> void:
+	if current_tab != 0:
+		_auto_continue_wave()
+		return
+	var title: String = "Boss 击败!" if rewards.get("is_boss", false) else "战斗胜利"
+	loot_dialog.show_rewards(rewards, title)
+
+func _auto_continue_wave() -> void:
+	_clear_enemy_units()
+	_prev_ehp = 0
+	_prev_php = GameManager.player_hp
+	GameManager.continue_next_wave()
+
+func _on_loot_closed() -> void:
+	_clear_enemy_units()
+	_prev_ehp = 0
+	_prev_php = GameManager.player_hp
+	_refresh_player_avatar()
+	GameManager.continue_next_wave()
+
+func _on_skill_cast(skill_id: String, color: Color, _target_pos: Vector2) -> void:
+	if not battle_effects:
+		return
+	var arena_pos := Vector2(effect_layer.size.x * 0.65, effect_layer.size.y * 0.35)
+	var eid := GameManager.current_target_id
+	if _enemy_units.has(eid):
+		var unit: BattleEnemyUnit = _enemy_units[eid]
+		arena_pos = unit.position + Vector2(40, 45)
+	elif _boss_unit:
+		arena_pos = _boss_unit.position + Vector2(40, 45)
+	match skill_id:
+		"slash_storm", "execute", "whirlwind", "bleed":
+			battle_effects.spawn_hit_particles(arena_pos, ThemeConfig.ACCENT_GOLD, 8)
+			battle_effects.spawn_crit_effect(arena_pos)
+		"shadow_bolt", "soul_drain", "dark_explosion", "void_rift":
+			battle_effects.spawn_hit_particles(arena_pos, color, 10)
+		"holy_shield":
+			battle_effects.spawn_hit_particles(arena_pos, Color(0.3, 0.8, 1.0), 12)
+		"divine_wrath", "resurrection":
+			battle_effects.spawn_crit_effect(arena_pos)
+		_:
+			battle_effects.spawn_hit_particles(arena_pos, color, 6)
+	var vfx_path: String = AssetRegistry.get_skill_vfx(skill_id)
+	if ResourceLoader.exists(vfx_path):
+		var spr := TextureRect.new()
+		spr.texture = load(vfx_path)
+		spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		spr.custom_minimum_size = Vector2(64, 64)
+		spr.size = Vector2(64, 64)
+		spr.position = arena_pos - Vector2(32, 32)
+		spr.modulate = Color(color.r, color.g, color.b, 0.9)
+		effect_layer.add_child(spr)
+		var tw := create_tween()
+		tw.tween_property(spr, "scale", Vector2(2.0, 2.0), 0.2)
+		tw.parallel().tween_property(spr, "modulate:a", 0.0, 0.5)
+		tw.tween_callback(spr.queue_free)
+
+func _spawn_boss_unit() -> void:
+	_clear_enemy_units()
+	var boss := GameManager.current_boss
+	var fake_enemy := {
+		"id": 9999,
+		"name": boss["name"],
+		"hp": GameManager.enemy_hp,
+		"max_hp": GameManager.enemy_max_hp,
+		"slot_index": 2,
+	}
+	var tex_path := "res://assets/generated/bosses/boss_forest_lord.png"
+	if not ResourceLoader.exists(tex_path):
+		tex_path = "res://assets/generated/enemies_v2/enemy_dry_treant_v2.png"
+	var arena_size: Vector2 = _get_arena_size()
+	var unit := BattleEnemyUnit.new()
+	enemy_container.add_child(unit)
+	unit.setup(fake_enemy, tex_path, arena_size, false, 1.18)
+	_boss_unit = unit
+	if _wave_label:
+		_wave_label.text = "💀 BOSS"
+	battle_effects.spawn_boss_entrance(unit.position + Vector2(40, 45))
+	unit.play_enter()
+	unit.enter_finished.connect(func(): pass)

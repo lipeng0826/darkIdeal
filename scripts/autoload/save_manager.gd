@@ -195,6 +195,19 @@ func load_game() -> Dictionary:
 		return {}
 	var data: Dictionary = json.data
 	load_completed.emit()
+	return _normalize_loaded_data(data)
+
+func _normalize_loaded_data(data: Dictionary) -> Dictionary:
+	if data.is_empty():
+		return data
+	for sk in data.get("equipment", {}):
+		var it = data["equipment"][sk]
+		if it != null:
+			data["equipment"][sk] = DataManager.normalize_item(it)
+	var inv: Array = data.get("inventory", [])
+	for i in range(inv.size()):
+		inv[i] = DataManager.normalize_item(inv[i])
+	data["inventory"] = inv
 	return data
 
 ## 计算离线收益
@@ -214,7 +227,7 @@ func calculate_offline_rewards(data: Dictionary) -> Dictionary:
 	var zone: Dictionary = DataManager.ZONES[zone_idx]
 	var enemy_stats: Dictionary = zone["enemy_stats"]
 	var player_lv: int = data["player"]["level"]
-	var scaled := DataManager.scale_enemy(enemy_stats, player_lv)
+	var scaled := DataManager.scale_enemy(enemy_stats, player_lv, zone_idx)
 	
 	# 估算每秒击杀效率 (简化: 假设每3秒一次击杀)
 	var kills_per_sec := 1.0 / 3.0

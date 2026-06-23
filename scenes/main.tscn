@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/player_visual.gd" id="2_pvis"]
+[ext_resource type="Script" path="res://scripts/ui/loot_dialog.gd" id="3_loot"]
+[ext_resource type="Script" path="res://scripts/ui/battle_effects.gd" id="4_fx"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -109,33 +112,34 @@ vertical_alignment = 1
 text = "黑暗森林"
 
 [node name="BattleArena" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
+clip_contents = true
 layout_mode = 1
 anchor_left = 0.02
-anchor_top = 0.06
+anchor_top = 0.055
 anchor_right = 0.98
-anchor_bottom = 0.52
+anchor_bottom = 0.78
 
 [node name="ZoneBG" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-modulate = Color(1, 1, 1, 0.15)
+modulate = Color(1, 1, 1, 0.58)
 mouse_filter = 2
 stretch_mode = 6
 expand_mode = 1
 
-[node name="PlayerSprite" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+[node name="PlayerVisual" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
 anchor_left = 0.02
-anchor_top = 0.1
-anchor_right = 0.38
-anchor_bottom = 0.9
+anchor_top = 0.0
+anchor_right = 0.32
+anchor_bottom = 1.0
 mouse_filter = 2
-stretch_mode = 5
-expand_mode = 1
+script = ExtResource("2_pvis")
 
 [node name="VSLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+visible = false
 layout_mode = 1
 anchor_left = 0.4
 anchor_top = 0.35
@@ -146,15 +150,48 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text = "VS"
 
-[node name="EnemySprite" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+[node name="EnemyContainer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
-anchor_left = 0.62
-anchor_top = 0.1
-anchor_right = 0.98
-anchor_bottom = 0.9
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 mouse_filter = 2
+
+[node name="PlayerInfoOverlay" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchor_left = 0.03
+anchor_top = 0.66
+anchor_right = 0.38
+anchor_bottom = 0.82
+theme_override_constants/separation = 2
+
+[node name="PlayerInfoRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Avatar" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(28, 28)
 stretch_mode = 5
 expand_mode = 1
+
+[node name="LevelLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+vertical_alignment = 1
+text = "Lv.1"
+
+[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 8)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="PlayerHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+horizontal_alignment = 1
 
 [node name="EffectLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
@@ -163,60 +200,29 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
+[node name="BattleEffects" type="Node2D" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/EffectLayer"]
+script = ExtResource("4_fx")
+
+[node name="BattleLog" type="RichTextLabel" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
+layout_mode = 1
+anchor_left = 0.02
+anchor_top = 0.845
+anchor_right = 0.98
+anchor_bottom = 0.995
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 8
+bbcode_enabled = true
+scroll_following = true
+scroll_active = true
+z_index = 12
+
 [node name="HPSection" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
 anchor_left = 0.05
-anchor_top = 0.53
+anchor_top = 0.785
 anchor_right = 0.95
-anchor_bottom = 0.66
+anchor_bottom = 0.835
 theme_override_constants/separation = 6
-
-[node name="PlayerHPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="PlayerName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(60, 0)
-theme_override_font_sizes/font_size = 10
-vertical_alignment = 1
-text = "玩家"
-
-[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 16)
-max_value = 100.0
-value = 100.0
-show_percentage = false
-
-[node name="PlayerHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/PlayerHPRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 9
-vertical_alignment = 1
-
-[node name="EnemyHPRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="EnemyName" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(60, 0)
-theme_override_font_sizes/font_size = 10
-vertical_alignment = 1
-
-[node name="EnemyHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 16)
-max_value = 100.0
-value = 100.0
-show_percentage = false
-
-[node name="EnemyHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/EnemyHPRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 9
-vertical_alignment = 1
 
 [node name="ExpRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
 layout_mode = 2
@@ -244,9 +250,9 @@ vertical_alignment = 1
 [node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
 anchor_left = 0.05
-anchor_top = 0.67
+anchor_top = 0.845
 anchor_right = 0.95
-anchor_bottom = 0.75
+anchor_bottom = 0.925
 theme_override_constants/separation = 8
 
 [node name="BossBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
@@ -273,16 +279,6 @@ layout_mode = 2
 custom_minimum_size = Vector2(36, 38)
 theme_override_font_sizes/font_size = 14
 text = "▶"
-
-[node name="BattleLog" type="RichTextLabel" parent="SafeArea/VBox/ContentArea/BattleView"]
-layout_mode = 1
-anchor_left = 0.03
-anchor_top = 0.77
-anchor_right = 0.97
-anchor_bottom = 1.0
-theme_override_font_sizes/normal_font_size = 10
-bbcode_enabled = true
-scroll_following = true
 
 [node name="DmgLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
@@ -462,3 +458,75 @@ anchor_top = 0.35
 anchor_right = 0.9
 anchor_bottom = 0.55
 mouse_filter = 2
+
+[node name="LootDialogLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="LootDialog" type="Control" parent="LootDialogLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("3_loot")
+
+[node name="Overlay" type="ColorRect" parent="LootDialogLayer/LootDialog"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.02, 0.05, 0.62)
+mouse_filter = 0
+
+[node name="Center" type="CenterContainer" parent="LootDialogLayer/LootDialog"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+
+[node name="Panel" type="PanelContainer" parent="LootDialogLayer/LootDialog/Center"]
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="Margin" type="MarginContainer" parent="LootDialogLayer/LootDialog/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="LootDialogLayer/LootDialog/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+text = "战斗胜利"
+
+[node name="GoldLine" type="Label" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+
+[node name="ItemsBox" type="VBoxContainer" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="Footer" type="HBoxContainer" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="ContinueBtn" type="Button" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox/Footer"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 32)
+theme_override_font_sizes/font_size = 11
+text = "继续战斗"
+
+[node name="CountdownLabel" type="Label" parent="LootDialogLayer/LootDialog/Center/Panel/Margin/VBox/Footer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+vertical_alignment = 1
