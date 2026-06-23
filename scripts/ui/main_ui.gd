@@ -71,7 +71,7 @@ var _enemy_units: Dictionary = {}
 var _boss_unit: BattleEnemyUnit = null
 var _spawn_queue: Array = []
 var _spawn_delay := 0.0
-var _atk_anim_playing := false
+var _player_atk_anim_playing := false
 var _wave_label: Label
 var _arena_polish_done := false
 var _equip_tooltip: EquipTooltip
@@ -203,6 +203,8 @@ func _connect_battle() -> void:
 	GameManager.battle_wave.enemy_hp_changed.connect(_on_enemy_hp_changed)
 	GameManager.battle_wave.enemy_died.connect(_on_enemy_unit_died)
 	GameManager.skill_system.skill_cast.connect(_on_skill_cast)
+	GameManager.combat_player_hit.connect(_on_combat_player_hit)
+	GameManager.combat_enemy_hit.connect(_on_combat_enemy_hit)
 
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded:
@@ -609,7 +611,7 @@ func _highlight_tab() -> void:
 
 # ==================== 帧动画 + 对战动画系统 ====================
 func _idle_animation(delta: float) -> void:
-	if _atk_anim_playing:
+	if _player_atk_anim_playing:
 		return
 	_frame_timer += delta
 	if _frame_timer >= FRAME_DURATION:
@@ -629,57 +631,48 @@ func _get_arena_size() -> Vector2:
 		sz = Vector2(680, 360)
 	return sz
 
-# ---------- 玩家攻击: 切换攻击帧 + 冲刺 + 斩击弧光 ----------
-func _play_player_attack() -> void:
-	if _atk_anim_playing:
-		return
-	var ps := _get_player_sprite()
-	if not ps or not player_visual:
-		return
-	_atk_anim_playing = true
-	var orig_mo: Vector2 = player_visual.motion_offset
-	if player_visual:
-		player_visual.play_attack_frame()
-	var tw := create_tween()
-	tw.tween_property(ps, "rotation", -0.12, 0.06).set_ease(Tween.EASE_IN)
-	tw.tween_property(player_visual, "motion_offset", orig_mo + Vector2(50, 0), 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tw.parallel().tween_property(ps, "rotation", 0.15, 0.08).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(_spawn_slash_arc)
-	var target_id := GameManager.current_target_id
-	if _enemy_units.has(target_id):
-		tw.tween_callback(func(): _enemy_units[target_id].play_hit())
-	tw.tween_callback(_spawn_hit_sparks)
-	tw.tween_property(player_visual, "motion_offset", orig_mo, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
-	tw.parallel().tween_property(ps, "rotation", 0.0, 0.15).set_ease(Tween.EASE_OUT)
-	tw.tween_property(player_visual, "motion_scale", Vector2(1.05, 0.95), 0.05)
-	tw.tween_property(player_visual, "motion_scale", Vector2.ONE, 0.08).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(_restore_idle_frames)
-	tw.tween_callback(func(): _atk_anim_playing = false)
+# ---------- 战斗动作：多帧攻击 + 受击反馈 ----------
+func _on_combat_player_hit(enemy_id: int) -> void:
+	_play_player_attack_on(enemy_id)
 
-func _play_enemy_attack() -> void:
-	if _atk_anim_playing:
+func _on_combat_enemy_hit(enemy_id: int) -> void:
+	_play_enemy_attack_on(enemy_id)
+
+func _play_player_attack_on(enemy_id: int) -> void:
+	if _player_atk_anim_playing or not player_visual:
 		return
-	_atk_anim_playing = true
-	var attacker: BattleEnemyUnit = _pick_attacking_enemy()
+	_player_atk_anim_playing = true
+	var strike_cb := func():
+		_spawn_slash_arc()
+		if enemy_id >= 0 and _enemy_units.has(enemy_id):
+			_enemy_units[enemy_id].play_hit()
+		elif enemy_id == -1 and _boss_unit and is_instance_valid(_boss_unit):
+			_boss_unit.play_hit()
+		_spawn_hit_sparks()
+	var finish_cb := func(): _player_atk_anim_playing = false
+	player_visual.play_attack_sequence(strike_cb, finish_cb)
+
+func _play_enemy_attack_on(enemy_id: int) -> void:
+	var attacker: BattleEnemyUnit = null
+	if enemy_id >= 0 and _enemy_units.has(enemy_id):
+		attacker = _enemy_units[enemy_id]
+	elif enemy_id == -1 and _boss_unit and is_instance_valid(_boss_unit):
+		attacker = _boss_unit
 	if attacker:
 		attacker.play_attack_toward(100)
 		_spawn_enemy_claw_slash(attacker)
-	var tw := create_tween()
-	tw.tween_interval(0.06)
-	tw.tween_callback(_shake_player)
-	tw.tween_callback(_flash_player_hit)
-	tw.tween_callback(_spawn_enemy_skill_effect)
-	tw.tween_interval(0.28)
-	tw.tween_callback(func(): _atk_anim_playing = false)
+	if player_visual:
+		player_visual.play_hit_reaction()
+	# 多只怪同时出手时叠加轻微震屏
+	if _enemy_units.size() > 1:
+		_shake_t = maxf(_shake_t, 0.06)
+	_spawn_enemy_skill_effect()
 
-func _pick_attacking_enemy() -> BattleEnemyUnit:
-	if _boss_unit and is_instance_valid(_boss_unit):
-		return _boss_unit
-	for eid in _enemy_units:
-		var u: BattleEnemyUnit = _enemy_units[eid]
-		if is_instance_valid(u):
-			return u
-	return null
+func _play_player_attack() -> void:
+	_play_player_attack_on(GameManager.current_target_id)
+
+func _play_enemy_attack() -> void:
+	_play_enemy_attack_on(-1 if GameManager.is_boss_fight else GameManager.current_target_id)
 
 func _spawn_enemy_claw_slash(attacker: BattleEnemyUnit) -> void:
 	var slash := Label.new()
@@ -893,11 +886,9 @@ func _update_battle(_delta: float) -> void:
 	if GameManager.enemy_hp < _prev_ehp and _prev_ehp > 0:
 		var dmg: int = _prev_ehp - GameManager.enemy_hp
 		_float_dmg(str(dmg), ThemeConfig.ACCENT_ORANGE if dmg > 50 else ThemeConfig.TXT_PRIMARY, true, dmg > 100)
-		_play_player_attack()
 	if GameManager.player_hp < _prev_php and _prev_php > 0:
 		var dmg2: int = _prev_php - GameManager.player_hp
 		_float_dmg(str(dmg2), ThemeConfig.ENEMY_RED, false, false)
-		_play_enemy_attack()
 	_prev_ehp = GameManager.enemy_hp
 	_prev_php = GameManager.player_hp
 
@@ -1916,7 +1907,7 @@ func _spawn_boss_unit() -> void:
 	}
 	var tex_path := "res://assets/generated/bosses/boss_forest_lord.png"
 	if not ResourceLoader.exists(tex_path):
-		tex_path = "res://assets/generated/enemies_v2/enemy_dry_treant_v2.png"
+		tex_path = "res://assets/sprites/enemy_idle_2.png"
 	var arena_size: Vector2 = _get_arena_size()
 	var unit := BattleEnemyUnit.new()
 	enemy_container.add_child(unit)

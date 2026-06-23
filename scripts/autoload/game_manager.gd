@@ -17,6 +17,8 @@ signal battle_log(message: String, color: Color)
 signal toast_message(text: String, color: Color)
 signal show_offline_rewards(rewards: Dictionary)
 signal wave_cleared(rewards: Dictionary)
+signal combat_player_hit(enemy_id: int)
+signal combat_enemy_hit(enemy_id: int)
 
 # ==================== 子系统引用 ====================
 var skill_system: SkillSystem
@@ -47,7 +49,7 @@ var current_target_id := -1
 
 # 战斗参数
 const PLAYER_ATTACK_SPEED := 1.2  # 秒
-const ENEMY_ATTACK_SPEED := 1.5
+const ENEMY_ATTACK_SPEED_MULT := 2.5  # 怪物攻速约为玩家的 1/2.5
 const WAVE_SKILL_DMG_FACTOR := 0.25  # 波次战中技能伤害系数（避免秒杀）
 const DROP_RATE := 0.15  # 装备掉率
 const MATERIAL_DROP_RATE := 0.3  # 材料掉率
@@ -125,7 +127,7 @@ func _process_battle(delta: float) -> void:
 		if not battle_wave.enemy_attack_timers.has(eid):
 			battle_wave.enemy_attack_timers[eid] = 0.0
 		battle_wave.enemy_attack_timers[eid] += delta
-		if battle_wave.enemy_attack_timers[eid] >= ENEMY_ATTACK_SPEED:
+		if battle_wave.enemy_attack_timers[eid] >= PLAYER_ATTACK_SPEED * ENEMY_ATTACK_SPEED_MULT:
 			battle_wave.enemy_attack_timers[eid] = 0.0
 			_enemy_attack_player(enemy)
 
@@ -159,6 +161,7 @@ func _player_attack_enemy() -> void:
 	AudioManager.play_sfx("hit" if not is_crit else "crit")
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
+	combat_player_hit.emit(int(target["id"]))
 
 func _enemy_attack_player(enemy: Dictionary = {}) -> void:
 	var atk_enemy: Dictionary = enemy if not enemy.is_empty() else current_enemy
@@ -174,6 +177,7 @@ func _enemy_attack_player(enemy: Dictionary = {}) -> void:
 	player_hp -= dmg
 	AudioManager.play_sfx("enemy_hit")
 	battle_log.emit("%s 对你造成 %d 伤害" % [atk_enemy["name"], dmg], Color(1.0, 0.3, 0.3))
+	combat_enemy_hit.emit(int(atk_enemy.get("id", -1)))
 	if player_hp <= 0:
 		if skill_system.check_immortal():
 			player_hp = int(combat["max_hp"] * 0.2)
@@ -196,6 +200,7 @@ func apply_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
 	battle_log.emit("✦ %s: %d 伤害" % [skill_name, dmg], color)
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
+	combat_player_hit.emit(int(target["id"]))
 
 func apply_dot_damage(dmg: int) -> void:
 	if not is_boss_fight:
@@ -210,6 +215,7 @@ func apply_dot_damage(dmg: int) -> void:
 		return
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
+	combat_player_hit.emit(int(target["id"]))
 
 func _on_wave_cleared(killed_enemies: Array) -> void:
 	var rewards := _aggregate_wave_rewards(killed_enemies)
@@ -345,9 +351,11 @@ func _process_boss_fight(delta: float) -> void:
 		attack_timer = 0.0
 		_player_attack_boss()
 	
-	# Boss攻击玩家
+	# Boss攻击玩家（比小怪更慢，狂暴时略加快）
 	enemy_attack_timer += delta
-	var boss_speed := 2.0 if not boss_enrage else 1.0
+	var boss_speed := PLAYER_ATTACK_SPEED * ENEMY_ATTACK_SPEED_MULT
+	if boss_enrage:
+		boss_speed *= 0.72
 	if enemy_attack_timer >= boss_speed:
 		enemy_attack_timer = 0.0
 		_boss_attack_player()
@@ -369,6 +377,7 @@ func _player_attack_boss() -> void:
 		player_hp = mini(player_hp + heal, int(combat["max_hp"]))
 	
 	AudioManager.play_sfx("hit" if not is_crit else "crit")
+	combat_player_hit.emit(-1)
 	
 	if enemy_hp <= 0:
 		_on_boss_killed()
@@ -388,6 +397,7 @@ func _boss_attack_player() -> void:
 	
 	player_hp -= dmg
 	AudioManager.play_sfx("enemy_hit")
+	combat_enemy_hit.emit(-1)
 	
 	if player_hp <= 0:
 		if skill_system.check_immortal():

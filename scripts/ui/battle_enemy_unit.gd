@@ -19,6 +19,9 @@ var _is_walking_in := false
 var _skip_enter := false
 var _sprite_scale_mult := 1.0
 var _is_attacking := false
+var _is_hit_reacting := false
+var _attack_tween: Tween
+var _hit_tween: Tween
 var _arena_h := 360.0
 
 const UNIT_W := 96.0
@@ -107,9 +110,24 @@ func update_hp(hp: int, max_hp: int) -> void:
 func play_hit() -> void:
 	if not sprite:
 		return
-	var tw := create_tween()
-	tw.tween_property(sprite, "modulate", Color(2.0, 2.0, 2.0, 1.0), 0.03)
-	tw.tween_property(sprite, "modulate", Color(1, 1, 1, 1), 0.12)
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
+		_is_attacking = false
+	if _hit_tween and _hit_tween.is_valid():
+		_hit_tween.kill()
+	_is_hit_reacting = true
+	var orig_x: float = position.x
+	_hit_tween = create_tween()
+	_hit_tween.tween_property(self, "position:x", orig_x + 16.0, 0.05).set_ease(Tween.EASE_OUT)
+	_hit_tween.parallel().tween_property(sprite, "modulate", Color(1.5, 1.35, 1.2), 0.04)
+	_hit_tween.parallel().tween_property(sprite, "rotation", 0.14, 0.05)
+	_hit_tween.parallel().tween_property(sprite, "scale", Vector2(0.92, 1.06), 0.05)
+	_hit_tween.tween_property(self, "position:x", orig_x + 8.0, 0.07)
+	_hit_tween.tween_property(self, "position:x", orig_x, 0.10).set_ease(Tween.EASE_OUT)
+	_hit_tween.parallel().tween_property(sprite, "modulate", Color.WHITE, 0.12)
+	_hit_tween.parallel().tween_property(sprite, "rotation", 0.0, 0.12)
+	_hit_tween.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.12)
+	_hit_tween.tween_callback(func(): _is_hit_reacting = false)
 
 func play_death(on_done: Callable = Callable()) -> void:
 	var tw := create_tween()
@@ -123,24 +141,33 @@ func play_death(on_done: Callable = Callable()) -> void:
 		queue_free())
 
 func play_attack_toward(_target_x: float) -> void:
-	if not sprite or _is_attacking:
+	if not sprite:
 		return
+	if _attack_tween and _attack_tween.is_valid():
+		_attack_tween.kill()
 	_is_attacking = true
+	set_process(false)
 	var orig_x: float = position.x
-	var tw := create_tween()
-	# 蓄力后扑向玩家
-	tw.tween_property(sprite, "rotation", 0.06, 0.04)
-	tw.tween_property(sprite, "scale", Vector2(0.94, 1.06), 0.04)
-	tw.tween_property(self, "position:x", orig_x - 30, 0.07).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "rotation", -0.14, 0.07)
-	tw.parallel().tween_property(sprite, "scale", Vector2(1.1, 0.9), 0.07)
-	tw.tween_callback(func():
-		sprite.modulate = Color(1.5, 0.65, 0.55, 1.0))
-	tw.tween_property(sprite, "modulate", Color.WHITE, 0.08)
-	tw.tween_property(self, "position:x", orig_x, 0.14).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(sprite, "rotation", 0.0, 0.12)
-	tw.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.12)
-	tw.tween_callback(func(): _is_attacking = false)
+	_attack_tween = create_tween()
+	# 蓄力
+	_attack_tween.tween_property(sprite, "rotation", 0.06, 0.10)
+	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(0.92, 1.08), 0.10)
+	_attack_tween.tween_property(self, "position:x", orig_x - 8.0, 0.08)
+	# 出手
+	_attack_tween.tween_property(self, "position:x", orig_x - 26.0, 0.11).set_ease(Tween.EASE_OUT)
+	_attack_tween.parallel().tween_property(sprite, "rotation", -0.12, 0.11)
+	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(1.06, 0.94), 0.11)
+	_attack_tween.tween_callback(func():
+		sprite.modulate = Color(1.15, 1.05, 0.92))
+	# 收招
+	_attack_tween.tween_property(sprite, "modulate", Color.WHITE, 0.10)
+	_attack_tween.tween_property(self, "position:x", orig_x, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	_attack_tween.parallel().tween_property(sprite, "rotation", 0.0, 0.15)
+	_attack_tween.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.15)
+	_attack_tween.tween_callback(func():
+		_is_attacking = false
+		if not _is_walking_in:
+			set_process(false))
 
 func _layout_sprite(tex: Texture2D, unit_h: float) -> void:
 	var tex_w: float = maxf(1.0, float(tex.get_width()))

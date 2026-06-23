@@ -51,7 +51,7 @@ func start_wave(zone_idx: int, player_lv: int) -> void:
 		}
 		_next_id += 1
 		wave_enemies.append(enemy)
-		enemy_attack_timers[enemy["id"]] = randf_range(0.3, 1.2)
+		enemy_attack_timers[enemy["id"]] = randf_range(0.8, 2.4)
 
 	_wave_active = true
 	wave_started.emit(wave_enemies.duplicate(true))
