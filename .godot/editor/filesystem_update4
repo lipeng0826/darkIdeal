@@ -7,3 +7,5 @@ res://scripts/ui/battle_enemy_unit.gd
 res://scripts/systems/battle_wave_controller.gd
 res://scripts/ui/battle_layout.gd
 res://scripts/ui/battle_arena_field.gd
+res://scripts/ui/theme_config.gd
+res://scripts/ui/nav_tab_button.gd

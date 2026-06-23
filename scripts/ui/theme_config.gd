@@ -141,14 +141,16 @@ static func make_bar_fill(color: Color) -> StyleBoxFlat:
 ## 导航栏背景
 static func make_nav_bg() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = BG_NAV
-	s.shadow_color = Color(0.0, 0.0, 0.0, 0.04)
-	s.shadow_size = 2
-	s.shadow_offset = Vector2(0, -1)
-	s.content_margin_left = 8.0
-	s.content_margin_right = 8.0
-	s.content_margin_top = 6.0
-	s.content_margin_bottom = 6.0
+	s.bg_color = Color(0.06, 0.05, 0.10, 0.96)
+	s.border_width_top = 1
+	s.border_color = Color(0.42, 0.34, 0.55, 0.55)
+	s.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	s.shadow_size = 6
+	s.shadow_offset = Vector2(0, -2)
+	s.content_margin_left = 4.0
+	s.content_margin_right = 4.0
+	s.content_margin_top = 4.0
+	s.content_margin_bottom = 8.0
 	return s
 
 ## 顶栏背景
@@ -167,7 +169,7 @@ static func make_header_bg() -> StyleBoxFlat:
 ## Tab指示器
 static func make_tab_indicator() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = PRIMARY
+	s.bg_color = Color(0.92, 0.78, 0.38, 0.95)
 	s.corner_radius_top_left = 3
 	s.corner_radius_top_right = 3
 	s.corner_radius_bottom_left = 3

@@ -83,13 +83,14 @@ func _get_player_sprite() -> TextureRect:
 		return player_visual.get_body_sprite()
 	return null
 
-const NAV_ICONS: Array = [
-	"res://assets/ui/icons/nav_battle.png",
-	"res://assets/ui/icons/nav_character.png",
-	"res://assets/ui/icons/nav_adventure.png",
-	"res://assets/ui/icons/nav_workshop.png",
-	"res://assets/ui/icons/nav_more.png",
+const NAV_TABS: Array = [
+	{"label": "战斗", "icon": "res://assets/ui/icons/nav_battle.png", "active": "res://assets/ui/icons/nav_battle_active.png"},
+	{"label": "角色", "icon": "res://assets/ui/icons/nav_character.png", "active": "res://assets/ui/icons/nav_character_active.png"},
+	{"label": "冒险", "icon": "res://assets/ui/icons/nav_adventure.png", "active": "res://assets/ui/icons/nav_adventure_active.png"},
+	{"label": "工坊", "icon": "res://assets/ui/icons/nav_workshop.png", "active": "res://assets/ui/icons/nav_workshop_active.png"},
+	{"label": "更多", "icon": "res://assets/ui/icons/nav_more.png", "active": "res://assets/ui/icons/nav_more_active.png"},
 ]
+var _nav_buttons: Array[NavTabButton] = []
 var _frame_timer := 0.0
 var _current_frame := 0
 const FRAME_DURATION := 0.4  # 每帧0.4秒
@@ -106,8 +107,8 @@ func _ready() -> void:
 	panel_view.add_child(_equip_compare)
 	_equip_compare.equip_confirmed.connect(_on_equip_compare_confirm)
 	_apply_theme()
+	_setup_premium_nav()
 	_setup_battle_arena_polish()
-	_load_nav_icons()
 	_load_player_sprite()
 	_connect_all()
 	_connect_battle()
@@ -117,12 +118,10 @@ func _ready() -> void:
 	call_deferred("_sync_battle_on_ready")
 
 func _connect_all() -> void:
-	for i in range(nav_row.get_child_count()):
-		var tab_vbox: VBoxContainer = nav_row.get_child(i)
+	for i in range(_nav_buttons.size()):
+		var btn: NavTabButton = _nav_buttons[i]
 		var idx: int = i
-		tab_vbox.gui_input.connect(func(ev: InputEvent):
-			if ev is InputEventMouseButton and ev.pressed:
-				_switch_tab(idx))
+		btn.tab_pressed.connect(func(): _switch_tab(idx))
 	boss_btn.pressed.connect(_on_boss)
 	prev_zone_btn.pressed.connect(_on_prev_zone)
 	next_zone_btn.pressed.connect(_on_next_zone)
@@ -260,12 +259,20 @@ func _apply_theme() -> void:
 	# 底部导航
 	var ns := ThemeConfig.make_nav_bg()
 	bottom_nav.add_theme_stylebox_override("panel", ns)
-	# LootDialog 样式由 loot_dialog.gd 自行管理
-	for tab_vbox in nav_row.get_children():
-		tab_vbox.mouse_filter = Control.MOUSE_FILTER_STOP
-		for child in tab_vbox.get_children():
-			if child is Label:
-				child.add_theme_color_override("font_color", ThemeConfig.TXT_DISABLED)
+	bottom_nav.custom_minimum_size = Vector2(0, 72)
+
+func _setup_premium_nav() -> void:
+	for c in nav_row.get_children():
+		c.queue_free()
+	_nav_buttons.clear()
+	for tab in NAV_TABS:
+		var btn := NavTabButton.new()
+		nav_row.add_child(btn)
+		var tex_n: Texture2D = load(tab["icon"])
+		var tex_a: Texture2D = load(tab["active"])
+		btn.setup(tab["label"], tex_n, tex_a)
+		_nav_buttons.append(btn)
+	_highlight_tab()
 
 func _setup_battle_arena_polish() -> void:
 	if _arena_polish_done:
@@ -328,9 +335,9 @@ func _setup_battle_arena_polish() -> void:
 	var nameplate := Panel.new()
 	nameplate.name = "PlayerNameplate"
 	nameplate.anchor_left = 0.01
-	nameplate.anchor_top = 0.68
-	nameplate.anchor_right = 0.40
-	nameplate.anchor_bottom = 0.97
+	nameplate.anchor_top = 0.02
+	nameplate.anchor_right = 0.37
+	nameplate.anchor_bottom = 0.14
 	nameplate.offset_left = 0
 	nameplate.offset_top = 0
 	nameplate.offset_right = 0
@@ -350,6 +357,25 @@ func _setup_battle_arena_polish() -> void:
 	nameplate.add_theme_stylebox_override("panel", nps)
 	battle_arena.add_child(nameplate)
 	battle_arena.move_child(nameplate, player_info_overlay.get_index())
+
+	var log_back := Panel.new()
+	log_back.name = "LogBackdrop"
+	log_back.anchor_left = 0.36
+	log_back.anchor_top = 0.83
+	log_back.anchor_right = 0.99
+	log_back.anchor_bottom = 0.995
+	log_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lbs := StyleBoxFlat.new()
+	lbs.bg_color = Color(0.02, 0.02, 0.05, 0.55)
+	lbs.corner_radius_top_left = 8
+	lbs.corner_radius_top_right = 8
+	lbs.corner_radius_bottom_left = 8
+	lbs.corner_radius_bottom_right = 8
+	lbs.border_width_top = 1
+	lbs.border_color = Color(0.35, 0.30, 0.42, 0.4)
+	log_back.add_theme_stylebox_override("panel", lbs)
+	battle_arena.add_child(log_back)
+	battle_arena.move_child(log_back, battle_log.get_index())
 
 	var hp_section: VBoxContainer = battle_view.get_node("HPSection")
 	if hp_section and not hp_section.get_node_or_null("ExpBackdrop"):
@@ -407,14 +433,9 @@ func _setup_battle_arena_polish() -> void:
 		action_row.add_child(row_back)
 		action_row.move_child(row_back, 0)
 
-func _load_nav_icons() -> void:
-	for i in range(nav_row.get_child_count()):
-		var tab_vbox: VBoxContainer = nav_row.get_child(i)
-		var icon_rect: TextureRect = tab_vbox.get_child(0)
-		if i < NAV_ICONS.size():
-			var tex: Texture2D = load(NAV_ICONS[i])
-			if tex:
-				icon_rect.texture = tex
+func _highlight_tab() -> void:
+	for i in range(_nav_buttons.size()):
+		_nav_buttons[i].set_selected(i == current_tab)
 
 func _load_player_sprite() -> void:
 	call_deferred("_refresh_player_avatar")
@@ -516,36 +537,6 @@ func _style_btn_light(btn: Button) -> void:
 	var p := n.duplicate()
 	p.bg_color = Color(0.88, 0.86, 0.82, 0.9)
 	btn.add_theme_stylebox_override("pressed", p)
-
-func _highlight_tab() -> void:
-	for i in range(nav_row.get_child_count()):
-		var tab_vbox: VBoxContainer = nav_row.get_child(i)
-		var active: bool = (i == current_tab)
-		var to_remove: Array = []
-		for child in tab_vbox.get_children():
-			if child is Label:
-				child.add_theme_color_override("font_color", ThemeConfig.PRIMARY if active else ThemeConfig.TXT_DISABLED)
-				child.add_theme_font_size_override("font_size", 10 if active else 9)
-			if child is TextureRect:
-				# 选中状态: 完全不透明 + 主色调 + 微放大
-				if active:
-					child.modulate = Color(1.0, 0.42, 0.54, 1.0)  # 珊瑩粉
-					child.custom_minimum_size = Vector2(38, 38)
-				else:
-					child.modulate = Color(0.6, 0.6, 0.6, 0.5)  # 灰色半透明
-					child.custom_minimum_size = Vector2(36, 36)
-			if child.name == "Indicator":
-				to_remove.append(child)
-		for old in to_remove:
-			old.free()
-		if active:
-			var ind := Panel.new()
-			ind.name = "Indicator"
-			ind.custom_minimum_size = Vector2(28, 3)
-			ind.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-			var ind_s := ThemeConfig.make_tab_indicator()
-			ind.add_theme_stylebox_override("panel", ind_s)
-			tab_vbox.add_child(ind)
 
 # ==================== 帧动画 + 对战动画系统 ====================
 func _idle_animation(delta: float) -> void:
@@ -913,7 +904,8 @@ func _build_route_map() -> void:
 	map_view.zone_selected.connect(_on_map_zone_selected)
 	map_view.tower_requested.connect(func(): _on_sub("深渊塔"))
 	item_list.add_child(map_view)
-	map_view.call_deferred("scroll_to_zone", cur)
+	await get_tree().process_frame
+	map_view.scroll_to_zone(cur)
 
 func _on_map_zone_selected(zone_idx: int) -> void:
 	if zone_idx > int(GameManager.game_data["zone"]["unlocked"]):
