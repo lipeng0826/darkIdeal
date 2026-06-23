@@ -5,12 +5,12 @@ class_name AssetRegistry
 # 精确敌人名 → Q版战斗精灵（与骑士主角风格统一，降低恐怖感）
 const ENEMY_EXACT_MAP := {
 	"暗影蝙蝠": "res://assets/generated/enemies_v2/enemy_shadow_bat_v2.png",
-	"腐尸食客": "res://assets/sprites/enemy_idle_1.png",
+	"腐尸食客": "res://assets/generated/enemies_v2/enemy_slime_v2.png",
 	"影狼": "res://assets/generated/enemies_v2/enemy_shadow_bat_v2.png",
 	"枯木精": "res://assets/generated/enemies_v2/enemy_dry_treant_v2.png",
 	"骷髅战士": "res://assets/generated/enemies_v2/enemy_skeleton_warrior_v2.png",
 	"怨灵": "res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
-	"墓穴食尸鬼": "res://assets/sprites/enemy_idle_2.png",
+	"墓穴食尸鬼": "res://assets/generated/enemies_v2/enemy_slime_v2.png",
 	"暗影法师": "res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
 	"影魔": "res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
 	"暗影刺客": "res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
@@ -51,20 +51,21 @@ const ENEMY_KEYWORD_MAP: Array = [
 	{"keys": ["骷髅", "骸骨", "骑士", "卫士"], "path": "res://assets/generated/enemies_v2/enemy_skeleton_warrior_v2.png"},
 	{"keys": ["枯木", "精", "树", "巨兽", "兽"], "path": "res://assets/generated/enemies_v2/enemy_dry_treant_v2.png"},
 	{"keys": ["怨灵", "亡魂", "幽灵", "梦魇", "虚空", "法师", "刺客", "影魔", "之眼"], "path": "res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png"},
-	{"keys": ["食尸", "腐尸", "僵尸", "恶魔", "使者"], "path": "res://assets/sprites/enemy_idle_1.png"},
+	{"keys": ["食尸", "腐尸", "僵尸"], "path": "res://assets/generated/enemies_v2/enemy_slime_v2.png"},
+	{"keys": ["恶魔", "使者"], "path": "res://assets/sprites/enemy_idle_1.png"},
 	{"keys": ["炼狱", "熔岩", "烈焰", "混沌", "末日", "永恒"], "path": "res://assets/sprites/enemy_idle_2.png"},
 ]
 
 const ZONE_DEFAULT_ENEMIES: Array = [
 	"res://assets/generated/enemies_v2/enemy_shadow_bat_v2.png",
-	"res://assets/sprites/enemy_idle_1.png",
+	"res://assets/generated/enemies_v2/enemy_slime_v2.png",
 	"res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
 	"res://assets/generated/enemies_v2/enemy_dry_treant_v2.png",
 	"res://assets/sprites/enemy_idle_2.png",
 	"res://assets/generated/enemies_v2/enemy_skeleton_warrior_v2.png",
 	"res://assets/generated/enemies_v2/enemy_shadow_mage_v2.png",
 	"res://assets/generated/enemies_v2/enemy_dry_treant_v2.png",
-	"res://assets/sprites/enemy_idle_1.png",
+	"res://assets/generated/enemies_v2/enemy_slime_v2.png",
 	"res://assets/generated/enemies_v2/enemy_skeleton_warrior_v2.png",
 ]
 
@@ -179,12 +180,12 @@ const PET_ICON_TEXTURES := {
 	"bone_lord": "res://assets/generated/pets/pet_bone_imp.png",
 	"fire_sprite": "res://assets/generated/pets/pet_fire_sprite.png",
 	"inferno_lord": "res://assets/generated/pets/pet_fire_sprite.png",
-	"ice_golem": "res://assets/generated/enemies_v2/enemy_ghost_wraith_v2.png",
-	"frost_titan": "res://assets/generated/enemies_v2/enemy_ghost_wraith_v2.png",
-	"soul_wisp": "res://assets/generated/enemies_v2/enemy_ghost_wraith_v2.png",
-	"soul_phoenix": "res://assets/generated/enemies_v2/enemy_ghost_wraith_v2.png",
-	"void_serpent": "res://assets/generated/enemies_v2/enemy_shadow_wolf_v2.png",
-	"void_dragon": "res://assets/generated/enemies_v2/enemy_abyss_demon_v2.png",
+	"ice_golem": "res://assets/generated/pets/pet_ice_golem.png",
+	"frost_titan": "res://assets/generated/pets/pet_ice_golem.png",
+	"soul_wisp": "res://assets/generated/pets/pet_soul_wisp.png",
+	"soul_phoenix": "res://assets/generated/pets/pet_soul_wisp.png",
+	"void_serpent": "res://assets/generated/pets/pet_void_serpent.png",
+	"void_dragon": "res://assets/generated/pets/pet_void_serpent.png",
 }
 
 const PET_ICON_FALLBACK := "res://assets/generated/pets/pet_shadow_wolf.png"
@@ -207,12 +208,46 @@ const ZONE_MAP_TEXTURES := [
 	"res://assets/generated/zones/zone_final_end.png",
 ]
 
+const BATTLE_BG_TEXTURES := [
+	"res://assets/generated/battle_bgs/battle_bg_forest.png",
+	"res://assets/generated/battle_bgs/battle_bg_tomb.png",
+	"res://assets/generated/battle_bgs/battle_bg_shadow.png",
+	"res://assets/generated/battle_bgs/battle_bg_lava.png",
+	"res://assets/generated/battle_bgs/battle_bg_throne.png",
+	"res://assets/generated/battle_bgs/battle_bg_void.png",
+	"res://assets/generated/battle_bgs/battle_bg_night.png",
+	"res://assets/generated/battle_bgs/battle_bg_lava.png",
+	"res://assets/generated/battle_bgs/battle_bg_void.png",
+	"res://assets/generated/battle_bgs/battle_bg_void.png",
+]
+
+const BOSS_TEXTURES := [
+	"res://assets/generated/bosses/boss_forest_lord.png",
+	"res://assets/generated/bosses/boss_skeleton_king.png",
+	"res://assets/generated/bosses/boss_shadow_queen.png",
+	"res://assets/generated/bosses/boss_inferno_demon.png",
+	"res://assets/generated/bosses/boss_lucifer.png",
+	"res://assets/generated/bosses/boss_void_chaos.png",
+	"res://assets/generated/bosses/boss_dark_moon.png",
+	"res://assets/generated/bosses/boss_hellfire.png",
+	"res://assets/generated/bosses/boss_apocalypse.png",
+	"res://assets/generated/bosses/boss_void_nihil.png",
+]
+
+static func get_boss_texture(zone_idx: int) -> String:
+	var idx := clampi(zone_idx, 0, BOSS_TEXTURES.size() - 1)
+	return BOSS_TEXTURES[idx]
+
+static func get_zone_battle_texture(zone_idx: int) -> String:
+	var idx := clampi(zone_idx, 0, BATTLE_BG_TEXTURES.size() - 1)
+	return BATTLE_BG_TEXTURES[idx]
+
 static func get_zone_map_texture(zone_idx: int) -> String:
 	var idx := clampi(zone_idx, 0, ZONE_MAP_TEXTURES.size() - 1)
 	return ZONE_MAP_TEXTURES[idx]
 
 static func uses_chroma_key(path: String) -> bool:
-	return "_v2" in path or "hero_" in path or "sprites/player" in path or "sprites/enemy" in path
+	return "_v2" in path or "hero_" in path or "sprites/player" in path or "sprites/enemy" in path or "generated/pets" in path
 
 static func load_texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):

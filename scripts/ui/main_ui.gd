@@ -82,36 +82,7 @@ func _get_player_sprite() -> TextureRect:
 	if player_visual and player_visual.get_body_sprite():
 		return player_visual.get_body_sprite()
 	return null
-# 玩家帧动画路径
-const PLAYER_IDLE_FRAMES: Array = [
-	"res://assets/sprites/player_idle_1.png",
-	"res://assets/sprites/player_idle_2.png",
-]
-const PLAYER_ATTACK_FRAMES: Array = [
-	"res://assets/sprites/player_attack_1.png",
-]
-# 敌人帧动画路径
-const ENEMY_IDLE_FRAMES: Array = [
-	"res://assets/sprites/enemy_idle_1.png",
-	"res://assets/sprites/enemy_idle_2.png",
-]
-const ENEMY_ATTACK_FRAMES: Array = [
-	"res://assets/sprites/enemy_attack_1.png",
-]
 
-# Shader路径
-const CHROMA_KEY_SHADER := "res://shaders/chroma_key.gdshader"
-
-# 帧动画缓存
-var _player_idle_textures: Array = []
-var _player_attack_textures: Array = []
-var _enemy_idle_textures: Array = []
-var _enemy_attack_textures: Array = []
-var _frame_timer := 0.0
-var _current_frame := 0
-const FRAME_DURATION := 0.4  # 每帧0.4秒
-var _player_shader_mat: ShaderMaterial
-var _enemy_shader_mat: ShaderMaterial
 const NAV_ICONS: Array = [
 	"res://assets/ui/icons/nav_battle.png",
 	"res://assets/ui/icons/nav_character.png",
@@ -119,30 +90,9 @@ const NAV_ICONS: Array = [
 	"res://assets/ui/icons/nav_workshop.png",
 	"res://assets/ui/icons/nav_more.png",
 ]
-const ENEMY_TEXTURES: Array = [
-	"res://assets/enemies/shadow_wolf_v2.png",
-	"res://assets/enemies/skeleton_v2.png",
-	"res://assets/enemies/demon_v2.png",
-	"res://assets/enemies/demon_v2.png",
-	"res://assets/enemies/fallen_angel_v2.png",
-	"res://assets/enemies/void_beast_v2.png",
-	"res://assets/enemies/fallen_angel_v2.png",
-	"res://assets/enemies/demon_v2.png",
-	"res://assets/enemies/void_beast_v2.png",
-	"res://assets/enemies/shadow_wolf_v2.png",
-]
-const ZONE_BG_TEXTURES: Array = [
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/tomb_v2.png",
-	"res://assets/zones/abyss_v2.png",
-	"res://assets/zones/abyss_v2.png",
-	"res://assets/zones/tomb_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/abyss_v2.png",
-	"res://assets/zones/tomb_v2.png",
-	"res://assets/zones/forest_v2.png",
-	"res://assets/zones/abyss_v2.png",
-]
+var _frame_timer := 0.0
+var _current_frame := 0
+const FRAME_DURATION := 0.4  # 每帧0.4秒
 
 # ==================== 初始化 ====================
 func _ready() -> void:
@@ -322,7 +272,18 @@ func _setup_battle_arena_polish() -> void:
 		return
 	_arena_polish_done = true
 	battle_arena.clip_contents = true
-	zone_bg.modulate = Color(1, 1, 1, 0.58)
+	zone_bg.modulate = Color(1.0, 1.0, 1.0, 0.92)
+	zone_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+
+	var field := BattleArenaField.new()
+	field.name = "ArenaField"
+	field.set_anchors_preset(Control.PRESET_FULL_RECT)
+	field.offset_left = 0
+	field.offset_top = 0
+	field.offset_right = 0
+	field.offset_bottom = 0
+	battle_arena.add_child(field)
+	battle_arena.move_child(field, 1)
 
 	var frame := Panel.new()
 	frame.name = "ArenaFrame"
@@ -341,30 +302,7 @@ func _setup_battle_arena_polish() -> void:
 	fs.corner_radius_bottom_right = 12
 	frame.add_theme_stylebox_override("panel", fs)
 	battle_arena.add_child(frame)
-	battle_arena.move_child(frame, 1)
-
-	var ground_grad := ColorRect.new()
-	ground_grad.name = "GroundGrad"
-	ground_grad.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	ground_grad.anchor_top = 0.62
-	ground_grad.offset_top = 0
-	ground_grad.color = Color(0.02, 0.02, 0.04, 0.35)
-	ground_grad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	battle_arena.add_child(ground_grad)
-
-	var ground_line := ColorRect.new()
-	ground_line.name = "GroundLine"
-	ground_line.anchor_left = 0.04
-	ground_line.anchor_top = BattleLayout.GROUND_Y_RATIO - 0.005
-	ground_line.anchor_right = 0.96
-	ground_line.anchor_bottom = BattleLayout.GROUND_Y_RATIO + 0.005
-	ground_line.offset_left = 0
-	ground_line.offset_top = 0
-	ground_line.offset_right = 0
-	ground_line.offset_bottom = 0
-	ground_line.color = Color(0.15, 0.12, 0.2, 0.55)
-	ground_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	battle_arena.add_child(ground_line)
+	battle_arena.move_child(frame, 2)
 
 	var vig_top := ColorRect.new()
 	vig_top.name = "VignetteTop"
@@ -928,8 +866,8 @@ func _refresh_zone() -> void:
 	zone_label.text = "%s" % z["name"]
 	zone_btn.text = "%s Lv.%d" % [z["name"], z["min_lv"]]
 	# 更新区域背景
-	var bg_path: String = ZONE_BG_TEXTURES[zi % ZONE_BG_TEXTURES.size()]
-	var bg_tex: Texture2D = load(bg_path)
+	var bg_path: String = AssetRegistry.get_zone_battle_texture(zi)
+	var bg_tex: Texture2D = AssetRegistry.load_texture(bg_path)
 	if bg_tex:
 		zone_bg.texture = bg_tex
 
@@ -1905,7 +1843,7 @@ func _spawn_boss_unit() -> void:
 		"max_hp": GameManager.enemy_max_hp,
 		"slot_index": 2,
 	}
-	var tex_path := "res://assets/generated/bosses/boss_forest_lord.png"
+	var tex_path := AssetRegistry.get_boss_texture(GameManager.game_data["zone"]["current"])
 	if not ResourceLoader.exists(tex_path):
 		tex_path = "res://assets/sprites/enemy_idle_2.png"
 	var arena_size: Vector2 = _get_arena_size()

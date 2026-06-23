@@ -59,16 +59,18 @@ func _fit_hero() -> void:
 		return
 	var tex: Texture2D = body_sprite.texture
 	var arena_h: float = _get_arena_height()
-	var ground_y: float = arena_h * BattleLayout.GROUND_Y_RATIO
-	_foot_y = ground_y - BattleLayout.SPRITE_FOOT_INSET
-	_sprite_h = arena_h * BattleLayout.HERO_HEIGHT_RATIO
+	var arena_w: float = _get_arena_width()
+	var anchor: Dictionary = BattleLayout.get_player_anchor(Vector2(arena_w, arena_h))
+	_foot_y = float(anchor["ground_y"]) - BattleLayout.SPRITE_FOOT_INSET
+	_sprite_h = arena_h * BattleLayout.HERO_HEIGHT_RATIO * float(anchor["scale"])
 	_sprite_w = _sprite_h * (float(tex.get_width()) / float(tex.get_height()))
+	z_index = int(anchor["z"])
 	_mo = Vector2.ZERO
 	_motion_scale = Vector2.ONE
 	body_sprite.stretch_mode = TextureRect.STRETCH_SCALE
 	body_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_apply_sprite_transform()
-	_layout_ground_shadow(_sprite_w, _foot_y)
+	_layout_ground_shadow(_sprite_w, _foot_y, BattleLayout.PLAYER_DEPTH)
 
 func _apply_sprite_transform() -> void:
 	if not body_sprite or _sprite_h < 1.0:
@@ -84,16 +86,28 @@ func _apply_sprite_transform() -> void:
 	body_sprite.offset_bottom = foot
 	body_sprite.pivot_offset = Vector2(w * 0.5, h)
 
-func _layout_ground_shadow(sprite_w: float, foot_y: float) -> void:
+func _layout_ground_shadow(sprite_w: float, foot_y: float, depth: float = 0.06) -> void:
 	if not has_node("GroundShadow"):
 		return
 	var sh: ColorRect = $GroundShadow
-	var sw: float = sprite_w * 0.55
+	var sw: float = sprite_w * lerpf(0.62, 0.48, depth)
+	var sh_h: float = lerpf(11.0, 7.0, depth)
 	sh.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	sh.offset_left = (size.x - sw) * 0.5
-	sh.offset_top = foot_y - 2.0
+	sh.offset_top = foot_y - sh_h * 0.35
 	sh.offset_right = sh.offset_left + sw
-	sh.offset_bottom = foot_y + 8.0
+	sh.offset_bottom = foot_y + sh_h * 0.45
+	sh.color = Color(0, 0, 0, lerpf(0.28, 0.16, depth))
+
+func _get_arena_width() -> float:
+	var node: Node = get_parent()
+	while node:
+		if node.name == "BattleArena" and node is Control:
+			var w: float = (node as Control).size.x
+			if w > 20.0:
+				return w
+		node = node.get_parent()
+	return size.x
 
 func _get_arena_height() -> float:
 	var node: Node = get_parent()

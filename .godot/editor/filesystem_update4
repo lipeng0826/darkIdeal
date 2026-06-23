@@ -5,3 +5,5 @@ res://scripts/ui/player_visual.gd
 res://scripts/autoload/game_manager.gd
 res://scripts/ui/battle_enemy_unit.gd
 res://scripts/systems/battle_wave_controller.gd
+res://scripts/ui/battle_layout.gd
+res://scripts/ui/battle_arena_field.gd

@@ -27,7 +27,7 @@ var _arena_h := 360.0
 const UNIT_W := 96.0
 const UNIT_H := 108.0
 
-const SLOT_X: Array = [0.52, 0.64, 0.76, 0.58, 0.70]
+var _depth_scale := 1.0
 
 func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter: bool = false, sprite_scale_mult: float = 1.0) -> void:
 	_ensure_nodes()
@@ -42,29 +42,31 @@ func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter:
 	if arena_size.x < 80.0:
 		arena_size = Vector2(680, 360)
 	_arena_h = arena_size.y
-	var slot: int = clampi(int(enemy.get("slot_index", 0)), 0, SLOT_X.size() - 1)
-	var ground_y: float = arena_size.y * BattleLayout.GROUND_Y_RATIO
-	var unit_h: float = maxf(108.0, _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _sprite_scale_mult + 30.0)
+	var slot: int = clampi(int(enemy.get("slot_index", 0)), 0, BattleLayout.ENEMY_SLOTS.size() - 1)
+	var slot_info: Dictionary = BattleLayout.get_enemy_slot(slot, arena_size)
+	_depth_scale = float(slot_info["scale"]) * _sprite_scale_mult
+	var ground_y: float = float(slot_info["ground_y"])
+	var unit_h: float = maxf(108.0, _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _depth_scale + 30.0)
 	custom_minimum_size = Vector2(UNIT_W, unit_h)
 	size = Vector2(UNIT_W, unit_h)
 	scale = Vector2.ONE
-	z_index = 2 + slot
+	z_index = int(slot_info["z"])
 	pivot_offset = Vector2(UNIT_W * 0.5, unit_h)
 
 	var tex: Texture2D = AssetRegistry.load_texture(tex_path)
 	if tex:
 		sprite.texture = tex
-		_layout_sprite(tex, unit_h)
+		_layout_sprite(tex, unit_h, float(slot_info["depth"]))
 		if AssetRegistry.uses_chroma_key(tex_path):
 			_apply_chroma_key(sprite)
 	else:
 		var fb: Texture2D = load("res://assets/sprites/enemy_idle_1.png")
 		if fb:
 			sprite.texture = fb
-			_layout_sprite(fb, unit_h)
+			_layout_sprite(fb, unit_h, float(slot_info["depth"]))
 			_apply_chroma_key(sprite)
 
-	_home_pos = Vector2(arena_size.x * SLOT_X[slot] - UNIT_W * 0.5, ground_y - unit_h)
+	_home_pos = Vector2(float(slot_info["x"]) - UNIT_W * 0.5, ground_y - unit_h)
 
 	if skip_enter:
 		position = _home_pos
@@ -169,23 +171,24 @@ func play_attack_toward(_target_x: float) -> void:
 		if not _is_walking_in:
 			set_process(false))
 
-func _layout_sprite(tex: Texture2D, unit_h: float) -> void:
+func _layout_sprite(tex: Texture2D, unit_h: float, depth: float = 0.0) -> void:
 	var tex_w: float = maxf(1.0, float(tex.get_width()))
 	var tex_h: float = maxf(1.0, float(tex.get_height()))
-	var display_h: float = _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _sprite_scale_mult
+	var display_h: float = _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _depth_scale
 	var display_w: float = display_h * (tex_w / tex_h)
 	sprite.custom_minimum_size = Vector2(display_w, display_h)
 	sprite.size = Vector2(display_w, display_h)
 	sprite.position = Vector2((UNIT_W - display_w) * 0.5, unit_h - display_h - BattleLayout.SPRITE_FOOT_INSET)
 	sprite.scale = Vector2.ONE
 	sprite.rotation = 0.0
-	# v2 素材本身朝左（面向玩家），不翻转
 	sprite.flip_h = false
 	sprite.pivot_offset = Vector2(display_w * 0.5, display_h * 0.9)
 	if shadow:
-		var sw: float = display_w * 0.62
-		shadow.size = Vector2(sw, 8)
-		shadow.position = Vector2((UNIT_W - sw) * 0.5, unit_h - 12)
+		var sw: float = display_w * lerpf(0.72, 0.50, depth)
+		var sh: float = lerpf(10.0, 6.0, depth)
+		shadow.size = Vector2(sw, sh)
+		shadow.position = Vector2((UNIT_W - sw) * 0.5, unit_h - sh - 2)
+		shadow.color = Color(0, 0, 0, lerpf(0.32, 0.18, depth))
 
 func _apply_chroma_key(rect: TextureRect) -> void:
 	var shader: Shader = load("res://shaders/chroma_key.gdshader")
