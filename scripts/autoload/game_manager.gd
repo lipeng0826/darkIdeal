@@ -47,6 +47,11 @@ const ENEMY_ATTACK_SPEED := 1.5
 const DROP_RATE := 0.15  # 装备掉率
 const MATERIAL_DROP_RATE := 0.3  # 材料掉率
 
+# 死亡惩罚系统
+var _death_debuff_timer := 0.0
+var _death_debuff_active := false
+const DEATH_DEBUFF_ATK_PENALTY := 0.20  # 攻击力降低20%
+
 # ==================== 初始化 ====================
 func _ready() -> void:
 	# 初始化子系统
@@ -81,6 +86,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not is_loaded:
 		return
+	# 死亡debuff计时器
+	if _death_debuff_active:
+		_death_debuff_timer -= delta
+		if _death_debuff_timer <= 0.0:
+			_death_debuff_active = false
+			_death_debuff_timer = 0.0
+			toast_message.emit("虚弱状态已解除", Color(0.5, 1.0, 0.5))
 	if is_fighting:
 		_process_battle(delta)
 
@@ -105,6 +117,9 @@ func _process_battle(delta: float) -> void:
 func _player_attack_enemy() -> void:
 	var combat: Dictionary = game_data["combat"]
 	var base_dmg: int = combat["atk"]
+	# 死亡虚弱debuff减伤
+	if _death_debuff_active:
+		base_dmg = int(base_dmg * (1.0 - DEATH_DEBUFF_ATK_PENALTY))
 	var enemy_def: int = current_enemy.get("def", 0)
 	
 	# 计算伤害
@@ -229,12 +244,20 @@ func _on_enemy_killed() -> void:
 func _on_player_died() -> void:
 	player_died.emit()
 	AudioManager.play_sfx("death")
-	# 复活（挂机游戏不惩罚死亡，只是重新开始）
+	# 死亡惩罚: 损失10%金币 + 虚弱状态
+	var gold_lost: int = int(game_data["player"]["gold"] * 0.10)
+	game_data["player"]["gold"] = maxi(0, game_data["player"]["gold"] - gold_lost)
+	game_data["stats"]["total_deaths"] = int(game_data["stats"].get("total_deaths", 0)) + 1
+	# 虚弱debuff: 5秒内攻击力-20%
+	_death_debuff_timer = 5.0
+	_death_debuff_active = true
+	# 复活
 	player_hp = game_data["combat"]["max_hp"]
 	attack_timer = 0.0
 	enemy_attack_timer = 0.0
 	_spawn_enemy()
-	toast_message.emit("你被击败了...重新振作！", Color(1.0, 0.3, 0.3))
+	var msg := "你被击败了! 损失💰%s，虚弱5秒" % _fmt_num(gold_lost)
+	toast_message.emit(msg, Color(1.0, 0.3, 0.3))
 
 func _spawn_enemy() -> void:
 	var zone_idx: int = game_data["zone"]["current"]
@@ -402,11 +425,11 @@ func add_exp(amount: int) -> void:
 
 func _on_level_up() -> void:
 	var lv: int = game_data["player"]["level"]
-	# 属性成长
-	game_data["combat"]["max_hp"] += 15 + lv * 3
-	game_data["combat"]["atk"] += 2 + lv / 5
-	game_data["combat"]["def"] += 1 + lv / 8
-	game_data["combat"]["hp_regen"] += 1
+	# 属性成长(优化后: 防御成长提升, 攻击成长加速)
+	game_data["combat"]["max_hp"] += 18 + lv * 4
+	game_data["combat"]["atk"] += 3 + lv / 4
+	game_data["combat"]["def"] += 2 + lv / 5
+	game_data["combat"]["hp_regen"] += 1 + lv / 15
 	player_hp = game_data["combat"]["max_hp"]
 	
 	# 每5级获得1天赋点
@@ -712,3 +735,10 @@ func _apply_offline_rewards(rewards: Dictionary) -> void:
 
 func _emit_offline_rewards(rewards: Dictionary) -> void:
 	show_offline_rewards.emit(rewards)
+
+func _fmt_num(n: int) -> String:
+	if n >= 1000000:
+		return "%.1fM" % (n / 1000000.0)
+	elif n >= 1000:
+		return "%.1fK" % (n / 1000.0)
+	return str(n)

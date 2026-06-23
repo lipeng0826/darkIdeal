@@ -286,10 +286,79 @@ func try_drop_pet(zone_index: int) -> void:
 		if data["pets"]["owned"].has(pet_id):
 			continue  # 已拥有
 		if randf() < float(source["chance"]):
-			data["pets"]["owned"][pet_id] = {"level": 1, "obtained_at": Time.get_unix_time_from_system()}
+			data["pets"]["owned"][pet_id] = {"level": 1, "exp": 0, "obtained_at": Time.get_unix_time_from_system()}
 			if data["pets"]["active"].is_empty():
 				data["pets"]["active"] = pet_id
 			pet_obtained.emit(pet_id)
 			AudioManager.play_sfx("reward")
 			GameManager.toast_message.emit("获得宠物: %s!" % PETS[pet_id]["name"], PETS[pet_id]["color"])
 			break
+
+# ==================== 宠物喂养系统 ====================
+signal pet_fed(pet_id: String, exp_gained: int)
+
+# 喂养材料对应经验值
+const FEED_MATERIALS := {
+	"shadow_essence": 30,
+	"bone_fragment": 20,
+	"soul_shard": 50,
+	"demon_blood": 80,
+	"abyss_crystal": 120,
+	"dragon_scale": 200,
+	"void_dust": 150,
+	"cursed_iron": 40,
+}
+
+## 宠物升级所需经验
+func pet_exp_for_level(lv: int) -> int:
+	return int(50.0 * pow(lv, 1.4) * (1.0 + lv * 0.08))
+
+## 喂养宠物(用材料提供经验)
+func feed_pet(pet_id: String, material_id: String, amount: int = 1) -> bool:
+	var data: Dictionary = GameManager.game_data
+	if not data.has("pets") or not data["pets"]["owned"].has(pet_id):
+		return false
+	if not FEED_MATERIALS.has(material_id):
+		GameManager.toast_message.emit("该材料不能喂养!", Color(1.0, 0.3, 0.3))
+		return false
+	
+	# 检查材料
+	var have: int = int(data["materials"].get(material_id, 0))
+	if have < amount:
+		GameManager.toast_message.emit("材料不足!", Color(1.0, 0.3, 0.3))
+		return false
+	
+	# 扣除材料
+	data["materials"][material_id] = have - amount
+	
+	# 增加经验
+	var exp_per: int = FEED_MATERIALS[material_id]
+	var total_exp: int = exp_per * amount
+	var pet_data: Dictionary = data["pets"]["owned"][pet_id]
+	pet_data["exp"] = int(pet_data.get("exp", 0)) + total_exp
+	
+	# 检查升级
+	var current_lv: int = int(pet_data["level"])
+	var needed: int = pet_exp_for_level(current_lv)
+	while int(pet_data["exp"]) >= needed:
+		pet_data["exp"] = int(pet_data["exp"]) - needed
+		pet_data["level"] = int(pet_data["level"]) + 1
+		current_lv = int(pet_data["level"])
+		needed = pet_exp_for_level(current_lv)
+		pet_leveled_up.emit(pet_id, current_lv)
+		AudioManager.play_sfx("levelup")
+	
+	var mat_name: String = DataManager.MATERIALS[material_id]["name"]
+	GameManager.toast_message.emit("喂养%s! +%dEXP (Lv.%d)" % [mat_name, total_exp, current_lv], PETS[pet_id]["color"])
+	pet_fed.emit(pet_id, total_exp)
+	GameManager.stats_updated.emit()
+	return true
+
+## 获取宠物当前经验进度
+func get_pet_exp_progress(pet_id: String) -> Dictionary:
+	var data: Dictionary = GameManager.game_data
+	if not data.has("pets") or not data["pets"]["owned"].has(pet_id):
+		return {"current": 0, "needed": 100, "level": 1}
+	var pet_data: Dictionary = data["pets"]["owned"][pet_id]
+	var lv: int = int(pet_data["level"])
+	return {"current": int(pet_data.get("exp", 0)), "needed": pet_exp_for_level(lv), "level": lv}

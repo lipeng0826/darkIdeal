@@ -279,3 +279,98 @@ func get_set_stat_bonus(stat: String) -> float:
 		if bonuses.has(stat):
 			total += float(bonuses[stat])
 	return total
+
+# ==================== 装备分解系统 ====================
+signal item_decomposed(materials_gained: Dictionary)
+
+## 分解装备 → 获得材料 + 金币
+func decompose_item(item: Dictionary) -> Dictionary:
+	var rarity: int = int(item.get("rarity", 0))
+	var level: int = int(item.get("level", 1))
+	var enhance_lv: int = int(item.get("enhance_level", 0))
+	
+	# 基础材料回收
+	var mats_gained: Dictionary = {}
+	var gold_gained: int = (level * 20 + rarity * 100 + enhance_lv * 50)
+	
+	# 根据品质给不同材料
+	var possible_mats: Array = ["shadow_essence", "bone_fragment", "cursed_iron", "soul_shard"]
+	var mat_count: int = rarity + 1
+	for i in range(mat_count):
+		var mat_id: String = possible_mats[randi() % possible_mats.size()]
+		mats_gained[mat_id] = mats_gained.get(mat_id, 0) + 1
+	
+	# 高品质额外给稀有材料
+	if rarity >= DataManager.Rarity.EPIC:
+		var rare_mats: Array = ["demon_blood", "abyss_crystal", "dragon_scale"]
+		mats_gained[rare_mats[randi() % rare_mats.size()]] = rarity - 2
+	
+	# 强化等级返还部分材料
+	if enhance_lv > 5:
+		mats_gained["cursed_iron"] = mats_gained.get("cursed_iron", 0) + enhance_lv / 3
+	
+	# 应用奖励
+	GameManager.add_gold(gold_gained)
+	for mat_id in mats_gained:
+		GameManager.game_data["materials"][mat_id] = int(GameManager.game_data["materials"].get(mat_id, 0)) + int(mats_gained[mat_id])
+	
+	item_decomposed.emit(mats_gained)
+	GameManager.toast_message.emit("分解成功! +💰%d +材料x%d" % [gold_gained, mat_count], Color(0.5, 1.0, 0.8))
+	return {"gold": gold_gained, "materials": mats_gained}
+
+# ==================== 装备合成系统 ====================
+signal item_synthesized(new_item: Dictionary)
+
+# 合成配方: 3件同槽位装备 → 1件更高品质
+## 合成装备(需要3件同槽位同品质装备)
+func synthesize_items(items: Array) -> Dictionary:
+	if items.size() < 3:
+		GameManager.toast_message.emit("需要3件同槽位装备才能合成!", Color(1.0, 0.3, 0.3))
+		return {"success": false}
+	
+	var slot: int = int(items[0]["slot"])
+	var base_rarity: int = int(items[0]["rarity"])
+	
+	# 验证: 必须同槽位同品质
+	for item in items:
+		if int(item["slot"]) != slot:
+			GameManager.toast_message.emit("装备槽位必须相同!", Color(1.0, 0.3, 0.3))
+			return {"success": false}
+		if int(item["rarity"]) != base_rarity:
+			GameManager.toast_message.emit("装备品质必须相同!", Color(1.0, 0.3, 0.3))
+			return {"success": false}
+	
+	# 合成费用
+	var synth_cost: int = (base_rarity + 1) * 2000
+	if int(GameManager.game_data["player"]["gold"]) < synth_cost:
+		GameManager.toast_message.emit("金币不足! 需要%d" % synth_cost, Color(1.0, 0.3, 0.3))
+		return {"success": false}
+	
+	# 扣费
+	GameManager.game_data["player"]["gold"] -= synth_cost
+	
+	# 生成新装备(品质+1)
+	var new_rarity: int = mini(base_rarity + 1, DataManager.Rarity.MYTHIC)
+	var avg_level: int = 0
+	for item in items:
+		avg_level += int(item["level"])
+	avg_level = avg_level / items.size()
+	
+	var new_item: Dictionary = DataManager.generate_item(slot, avg_level + 3, new_rarity - DataManager.roll_rarity(avg_level / 10))
+	# 强制设置新品质
+	new_item["rarity"] = new_rarity
+	
+	item_synthesized.emit(new_item)
+	var rarity_name: String = DataManager.RARITY_INFO[new_rarity as DataManager.Rarity]["name"]
+	GameManager.toast_message.emit("合成成功! 获得%s装备!" % rarity_name, DataManager.RARITY_INFO[new_rarity as DataManager.Rarity]["color"])
+	AudioManager.play_sfx("reward")
+	return {"success": true, "item": new_item}
+
+## 获取分解预览(显示能获得什么)
+func get_decompose_preview(item: Dictionary) -> Dictionary:
+	var rarity: int = int(item.get("rarity", 0))
+	var level: int = int(item.get("level", 1))
+	var enhance_lv: int = int(item.get("enhance_level", 0))
+	var gold: int = (level * 20 + rarity * 100 + enhance_lv * 50)
+	var mat_count: int = rarity + 1
+	return {"gold": gold, "material_count": mat_count, "has_rare": rarity >= DataManager.Rarity.EPIC}

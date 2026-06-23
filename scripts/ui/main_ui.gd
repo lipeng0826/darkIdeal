@@ -68,21 +68,37 @@ var _prev_php := 0
 var _idle_phase := 0.0
 var _atk_anim_playing := false
 
-# ==================== 图片资源路径 ====================
-const PLAYER_TEXTURE := "res://assets/characters/player_idle.png"
-const PLAYER_ATTACK_TEXTURE := "res://assets/characters/player_attack.png"
-const PLAYER_HURT_TEXTURE := "res://assets/characters/player_hurt.png"
-const ENEMY_IDLE_TEXTURE := "res://assets/enemies/poses/enemy_idle.png"
-const ENEMY_ATTACK_TEXTURE := "res://assets/enemies/poses/enemy_attack.png"
-const ENEMY_HURT_TEXTURE := "res://assets/enemies/poses/enemy_hurt.png"
+# ==================== 精灵帧动画资源 ====================
+# 玩家帧动画路径
+const PLAYER_IDLE_FRAMES: Array = [
+	"res://assets/sprites/player_idle_1.png",
+	"res://assets/sprites/player_idle_2.png",
+]
+const PLAYER_ATTACK_FRAMES: Array = [
+	"res://assets/sprites/player_attack_1.png",
+]
+# 敌人帧动画路径
+const ENEMY_IDLE_FRAMES: Array = [
+	"res://assets/sprites/enemy_idle_1.png",
+	"res://assets/sprites/enemy_idle_2.png",
+]
+const ENEMY_ATTACK_FRAMES: Array = [
+	"res://assets/sprites/enemy_attack_1.png",
+]
 
-# 缓存加载的姿态贴图
-var _tex_player_idle: Texture2D
-var _tex_player_attack: Texture2D
-var _tex_player_hurt: Texture2D
-var _tex_enemy_idle: Texture2D
-var _tex_enemy_attack: Texture2D
-var _tex_enemy_hurt: Texture2D
+# Shader路径
+const CHROMA_KEY_SHADER := "res://shaders/chroma_key.gdshader"
+
+# 帧动画缓存
+var _player_idle_textures: Array = []
+var _player_attack_textures: Array = []
+var _enemy_idle_textures: Array = []
+var _enemy_attack_textures: Array = []
+var _frame_timer := 0.0
+var _current_frame := 0
+const FRAME_DURATION := 0.4  # 每帧0.4秒
+var _player_shader_mat: ShaderMaterial
+var _enemy_shader_mat: ShaderMaterial
 const NAV_ICONS: Array = [
 	"res://assets/ui/icons/nav_battle.png",
 	"res://assets/ui/icons/nav_character.png",
@@ -148,6 +164,7 @@ func _connect_all() -> void:
 	GameManager.show_offline_rewards.connect(_show_offline)
 	GameManager.item_obtained.connect(func(item: Dictionary):
 		if int(item["rarity"]) >= DataManager.Rarity.RARE: _shake_t = 0.15)
+	GameManager.enemy_killed.connect(_show_battle_rewards)
 
 func _process(delta: float) -> void:
 	if not GameManager.is_loaded:
@@ -261,16 +278,46 @@ func _load_nav_icons() -> void:
 				icon_rect.texture = tex
 
 func _load_player_sprite() -> void:
-	_tex_player_idle = load(PLAYER_TEXTURE)
-	_tex_player_attack = load(PLAYER_ATTACK_TEXTURE)
-	_tex_player_hurt = load(PLAYER_HURT_TEXTURE)
-	_tex_enemy_idle = load(ENEMY_IDLE_TEXTURE)
-	_tex_enemy_attack = load(ENEMY_ATTACK_TEXTURE)
-	_tex_enemy_hurt = load(ENEMY_HURT_TEXTURE)
-	if _tex_player_idle:
-		player_sprite.texture = _tex_player_idle
-	if _tex_enemy_idle:
-		enemy_sprite.texture = _tex_enemy_idle
+	# 加载色度键Shader并应用到角色
+	var shader: Shader = load(CHROMA_KEY_SHADER)
+	if shader:
+		_player_shader_mat = ShaderMaterial.new()
+		_player_shader_mat.shader = shader
+		_player_shader_mat.set_shader_parameter("key_color", Vector3(0.0, 1.0, 0.0))
+		_player_shader_mat.set_shader_parameter("threshold", 0.45)
+		_player_shader_mat.set_shader_parameter("smoothing", 0.12)
+		player_sprite.material = _player_shader_mat
+		
+		_enemy_shader_mat = ShaderMaterial.new()
+		_enemy_shader_mat.shader = shader
+		_enemy_shader_mat.set_shader_parameter("key_color", Vector3(0.0, 1.0, 0.0))
+		_enemy_shader_mat.set_shader_parameter("threshold", 0.45)
+		_enemy_shader_mat.set_shader_parameter("smoothing", 0.12)
+		enemy_sprite.material = _enemy_shader_mat
+	
+	# 加载玩家帧动画贴图
+	for path in PLAYER_IDLE_FRAMES:
+		var tex: Texture2D = load(path)
+		if tex:
+			_player_idle_textures.append(tex)
+	for path in PLAYER_ATTACK_FRAMES:
+		var tex: Texture2D = load(path)
+		if tex:
+			_player_attack_textures.append(tex)
+	# 加载敌人帧动画贴图
+	for path in ENEMY_IDLE_FRAMES:
+		var tex: Texture2D = load(path)
+		if tex:
+			_enemy_idle_textures.append(tex)
+	for path in ENEMY_ATTACK_FRAMES:
+		var tex: Texture2D = load(path)
+		if tex:
+			_enemy_attack_textures.append(tex)
+	# 设置初始帧
+	if _player_idle_textures.size() > 0:
+		player_sprite.texture = _player_idle_textures[0]
+	if _enemy_idle_textures.size() > 0:
+		enemy_sprite.texture = _enemy_idle_textures[0]
 
 # ==================== 样式工具 ====================
 func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
@@ -326,8 +373,15 @@ func _highlight_tab() -> void:
 		for child in tab_vbox.get_children():
 			if child is Label:
 				child.add_theme_color_override("font_color", ThemeConfig.PRIMARY if active else ThemeConfig.TXT_DISABLED)
+				child.add_theme_font_size_override("font_size", 10 if active else 9)
 			if child is TextureRect:
-				child.modulate = Color(1, 1, 1, 1.0) if active else Color(1, 1, 1, 0.45)
+				# 选中状态: 完全不透明 + 主色调 + 微放大
+				if active:
+					child.modulate = Color(1.0, 0.42, 0.54, 1.0)  # 珊瑩粉
+					child.custom_minimum_size = Vector2(38, 38)
+				else:
+					child.modulate = Color(0.6, 0.6, 0.6, 0.5)  # 灰色半透明
+					child.custom_minimum_size = Vector2(36, 36)
 			if child.name == "Indicator":
 				to_remove.append(child)
 		for old in to_remove:
@@ -335,67 +389,77 @@ func _highlight_tab() -> void:
 		if active:
 			var ind := Panel.new()
 			ind.name = "Indicator"
-			ind.custom_minimum_size = Vector2(24, 3)
+			ind.custom_minimum_size = Vector2(28, 3)
 			ind.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			var ind_s := ThemeConfig.make_tab_indicator()
 			ind.add_theme_stylebox_override("panel", ind_s)
 			tab_vbox.add_child(ind)
 
-# ==================== 对战动画系统 ====================
+# ==================== 帧动画 + 对战动画系统 ====================
 func _idle_animation(delta: float) -> void:
 	if _atk_anim_playing:
 		return
-	_idle_phase += delta * 2.0
-	# 呼吸浮动 + 微弱缩放
-	player_sprite.position.y = sin(_idle_phase) * 3.0
-	enemy_sprite.position.y = sin(_idle_phase * 0.85 + 1.0) * 3.0
+	# 帧动画切换
+	_frame_timer += delta
+	if _frame_timer >= FRAME_DURATION:
+		_frame_timer = 0.0
+		_current_frame += 1
+		# 玩家idle帧切换
+		if _player_idle_textures.size() > 0:
+			player_sprite.texture = _player_idle_textures[_current_frame % _player_idle_textures.size()]
+		# 敌人Idle帧切换
+		if _enemy_idle_textures.size() > 0:
+			enemy_sprite.texture = _enemy_idle_textures[_current_frame % _enemy_idle_textures.size()]
+	# 呼吸浮动动画
+	_idle_phase += delta * 2.5
+	player_sprite.position.y = sin(_idle_phase) * 4.0
+	enemy_sprite.position.y = sin(_idle_phase * 0.85 + 1.0) * 4.0
 	# 微缩放呼吸感
-	var breath_scale: float = 1.0 + sin(_idle_phase * 1.2) * 0.008
+	var breath_scale: float = 1.0 + sin(_idle_phase * 1.5) * 0.015
 	player_sprite.scale = Vector2(breath_scale, breath_scale)
 	enemy_sprite.scale = Vector2(breath_scale, breath_scale)
 
-# ---------- 玩家攻击: 切换攻击姿态 + 冲刺 + 斩击弧光 ----------
+# ---------- 玩家攻击: 切换攻击帧 + 冲刺 + 斩击弧光 ----------
 func _play_player_attack() -> void:
 	if _atk_anim_playing:
 		return
 	_atk_anim_playing = true
 	var orig_x: float = player_sprite.position.x
 	var orig_y: float = player_sprite.position.y
-	# 切换为攻击姿态图
-	if _tex_player_attack:
-		player_sprite.texture = _tex_player_attack
+	# 切换为攻击帧
+	if _player_attack_textures.size() > 0:
+		player_sprite.texture = _player_attack_textures[0]
 	var tw := create_tween()
 	# Phase 1: 蓄力后仰(0.06s)
 	tw.tween_property(player_sprite, "rotation", -0.12, 0.06).set_ease(Tween.EASE_IN)
 	# Phase 2: 冲刺前倾(0.08s)
 	tw.tween_property(player_sprite, "position:x", orig_x + 50, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.parallel().tween_property(player_sprite, "rotation", 0.15, 0.08).set_ease(Tween.EASE_OUT)
-	# Phase 3: 命中瞬间 - 触发特效 + 敌人切换受伤姿态
+	# Phase 3: 命中瞬间 - 触发特效
 	tw.tween_callback(_spawn_slash_arc)
 	tw.tween_callback(_shake_enemy)
 	tw.tween_callback(_flash_enemy_hit)
 	tw.tween_callback(_spawn_hit_sparks)
-	tw.tween_callback(_set_enemy_hurt_pose)
 	# Phase 4: 回弹(0.18s)
 	tw.tween_property(player_sprite, "position:x", orig_x, 0.18).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
 	tw.parallel().tween_property(player_sprite, "rotation", 0.0, 0.15).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(player_sprite, "position:y", orig_y, 0.12)
-	# Phase 5: 落地微蹲 + 恢复待机姿态
+	# Phase 5: 落地微蹲 + 恢复idle帧
 	tw.tween_property(player_sprite, "scale", Vector2(1.05, 0.95), 0.05)
 	tw.tween_property(player_sprite, "scale", Vector2(1.0, 1.0), 0.08).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(_restore_idle_poses)
+	tw.tween_callback(_restore_idle_frames)
 	tw.tween_callback(func(): _atk_anim_playing = false)
 
-# ---------- 敌人攻击: 切换攻击姿态 + 蓄力 + 冲击 ----------
+# ---------- 敌人攻击: 切换攻击帧 + 蓄力 + 冲击 ----------
 func _play_enemy_attack() -> void:
 	if _atk_anim_playing:
 		return
 	_atk_anim_playing = true
 	var orig_x: float = enemy_sprite.position.x
 	var orig_y: float = enemy_sprite.position.y
-	# 切换为攻击姿态图
-	if _tex_enemy_attack:
-		enemy_sprite.texture = _tex_enemy_attack
+	# 切换为敌人攻击帧
+	if _enemy_attack_textures.size() > 0:
+		enemy_sprite.texture = _enemy_attack_textures[0]
 	var tw := create_tween()
 	# Phase 1: 蓄力 - 身体膨胀+发光(0.2s)
 	tw.tween_property(enemy_sprite, "scale", Vector2(1.15, 1.15), 0.12).set_ease(Tween.EASE_OUT)
@@ -406,35 +470,26 @@ func _play_enemy_attack() -> void:
 	# Phase 3: 冲击(0.08s)
 	tw.tween_property(enemy_sprite, "position:x", orig_x - 55, 0.08).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.parallel().tween_property(enemy_sprite, "rotation", -0.12, 0.08)
-	# Phase 4: 命中 - 触发特效 + 玩家切换受伤姿态
+	# Phase 4: 命中 - 触发特效
 	tw.tween_callback(_shake_player)
 	tw.tween_callback(_flash_player_hit)
 	tw.tween_callback(_spawn_enemy_skill_effect)
-	tw.tween_callback(_set_player_hurt_pose)
 	# Phase 5: 回弹(0.2s)
 	tw.tween_property(enemy_sprite, "position:x", orig_x, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
 	tw.parallel().tween_property(enemy_sprite, "rotation", 0.0, 0.15)
 	tw.parallel().tween_property(enemy_sprite, "modulate", Color(1, 1, 1, 1), 0.15)
 	tw.parallel().tween_property(enemy_sprite, "scale", Vector2(1.0, 1.0), 0.15)
 	tw.parallel().tween_property(enemy_sprite, "position:y", orig_y, 0.12)
-	# 恢复待机姿态
-	tw.tween_callback(_restore_idle_poses)
+	# 恢夏idle帧
+	tw.tween_callback(_restore_idle_frames)
 	tw.tween_callback(func(): _atk_anim_playing = false)
 
-# ---------- 姿态切换辅助函数 ----------
-func _set_enemy_hurt_pose() -> void:
-	if _tex_enemy_hurt:
-		enemy_sprite.texture = _tex_enemy_hurt
-
-func _set_player_hurt_pose() -> void:
-	if _tex_player_hurt:
-		player_sprite.texture = _tex_player_hurt
-
-func _restore_idle_poses() -> void:
-	if _tex_player_idle:
-		player_sprite.texture = _tex_player_idle
-	if _tex_enemy_idle:
-		enemy_sprite.texture = _tex_enemy_idle
+# ---------- 帧动画辅助函数 ----------
+func _restore_idle_frames() -> void:
+	if _player_idle_textures.size() > 0:
+		player_sprite.texture = _player_idle_textures[0]
+	if _enemy_idle_textures.size() > 0:
+		enemy_sprite.texture = _enemy_idle_textures[0]
 
 # ---------- 受击闪白 ----------
 func _flash_enemy_hit() -> void:
@@ -623,12 +678,6 @@ func _update_battle(_delta: float) -> void:
 		enemy_name_label.text = "💀 %s" % GameManager.current_boss.get("name", "Boss")
 	else:
 		enemy_name_label.text = GameManager.current_enemy.get("name", "")
-	# 加载敌人贴图
-	var zi: int = GameManager.game_data["zone"]["current"]
-	var tex_path: String = ENEMY_TEXTURES[zi % ENEMY_TEXTURES.size()]
-	var tex: Texture2D = load(tex_path)
-	if tex and enemy_sprite.texture != tex:
-		enemy_sprite.texture = tex
 	# 伤害浮字 + 攻击动画
 	if GameManager.enemy_hp < _prev_ehp and _prev_ehp > 0:
 		var dmg: int = _prev_ehp - GameManager.enemy_hp
@@ -655,22 +704,26 @@ func _update_battle(_delta: float) -> void:
 func _float_dmg(text: String, color: Color, is_enemy: bool, big: bool) -> void:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", 20 if big else 14)
+	l.add_theme_font_size_override("font_size", 22 if big else 15)
 	l.add_theme_color_override("font_color", color)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# 伤害从对应角色头顶飘出
+	# 伤害数字直接显示在角色身上(战斗区域内)
+	var battle_rect: Rect2 = battle_arena.get_rect()
 	if is_enemy:
-		l.position = Vector2(dmg_layer.size.x * 0.7 + randf_range(-30, 30), dmg_layer.size.y * 0.15)
+		# 敌人位置(右侧)
+		l.position = Vector2(battle_arena.size.x * 0.72 + randf_range(-20, 20), battle_arena.size.y * 0.15 + randf_range(-10, 10))
 	else:
-		l.position = Vector2(dmg_layer.size.x * 0.2 + randf_range(-30, 30), dmg_layer.size.y * 0.15)
-	dmg_layer.add_child(l)
+		# 玩家位置(左侧)
+		l.position = Vector2(battle_arena.size.x * 0.18 + randf_range(-20, 20), battle_arena.size.y * 0.15 + randf_range(-10, 10))
+	l.z_index = 10
+	effect_layer.add_child(l)
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(l, "position:y", l.position.y - 40.0, 0.7).set_ease(Tween.EASE_OUT)
-	tw.tween_property(l, "modulate:a", 0.0, 0.7).set_delay(0.2)
+	tw.tween_property(l, "position:y", l.position.y - 50.0, 0.8).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.3)
 	if big:
-		tw.tween_property(l, "scale", Vector2(1.4, 1.4), 0.08)
-		tw.tween_property(l, "scale", Vector2(1.0, 1.0), 0.2).set_delay(0.08)
+		tw.tween_property(l, "scale", Vector2(1.6, 1.6), 0.06)
+		tw.tween_property(l, "scale", Vector2(1.0, 1.0), 0.15).set_delay(0.06)
 	tw.set_parallel(false)
 	tw.tween_callback(l.queue_free)
 
@@ -1433,3 +1486,104 @@ func _fmt(n: int) -> String:
 	elif n >= 1000:
 		return "%.1fK" % (n / 1000.0)
 	return str(n)
+
+# ==================== 战斗奖励弹窗 ====================
+var _reward_popup_timer := 0.0
+var _reward_popup_active := false
+
+func _show_battle_rewards(enemy_name: String, rewards: Dictionary) -> void:
+	# 只有有材料或装备掉落时才显示弹窗，普通金币经验用飘字
+	var has_drops: bool = rewards.has("material") or rewards.has("item")
+	
+	# 经验金币飘字(每次都显示)
+	var reward_text := "+%s💰 +%sEXP" % [_fmt(int(rewards["gold"])), _fmt(int(rewards["exp"]))]
+	_spawn_reward_float(reward_text, ThemeConfig.ACCENT_GOLD)
+	
+	# 有特殊掉落时显示弹窗
+	if has_drops:
+		_spawn_reward_popup(enemy_name, rewards)
+
+func _spawn_reward_float(text: String, color: Color) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", color)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.position = Vector2(effect_layer.size.x * 0.3, effect_layer.size.y * 0.9)
+	effect_layer.add_child(l)
+	var tw := create_tween()
+	tw.tween_property(l, "position:y", l.position.y - 30.0, 0.6).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.4)
+	tw.tween_callback(l.queue_free)
+
+func _spawn_reward_popup(enemy_name: String, rewards: Dictionary) -> void:
+	var popup := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.08, 0.2, 0.92)
+	s.corner_radius_top_left = 14
+	s.corner_radius_top_right = 14
+	s.corner_radius_bottom_left = 14
+	s.corner_radius_bottom_right = 14
+	s.border_width_left = 2
+	s.border_width_right = 2
+	s.border_width_top = 2
+	s.border_width_bottom = 2
+	s.border_color = ThemeConfig.ACCENT_GOLD
+	s.shadow_color = Color(0, 0, 0, 0.3)
+	s.shadow_size = 6
+	s.content_margin_left = 16.0
+	s.content_margin_right = 16.0
+	s.content_margin_top = 12.0
+	s.content_margin_bottom = 12.0
+	popup.add_theme_stylebox_override("panel", s)
+	
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	
+	# 标题
+	var title := Label.new()
+	title.text = "✨ 战利品 ✨"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+	vbox.add_child(title)
+	
+	# 金币+经验
+	var gold_line := Label.new()
+	gold_line.text = "💰 +%s  ✨ +%s EXP" % [_fmt(int(rewards["gold"])), _fmt(int(rewards["exp"]))]
+	gold_line.add_theme_font_size_override("font_size", 11)
+	gold_line.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
+	vbox.add_child(gold_line)
+	
+	# 材料
+	if rewards.has("material"):
+		var mat_line := Label.new()
+		var mat_name: String = DataManager.MATERIALS.get(rewards["material"], {}).get("name", rewards["material"])
+		mat_line.text = "🔮 %s x1" % mat_name
+		mat_line.add_theme_font_size_override("font_size", 11)
+		mat_line.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		vbox.add_child(mat_line)
+	
+	# 装备
+	if rewards.has("item"):
+		var item: Dictionary = rewards["item"]
+		var item_line := Label.new()
+		var rarity_colors: Array = [Color.WHITE, Color(0.3, 0.9, 0.3), Color(0.3, 0.6, 1.0), Color(0.8, 0.3, 1.0), Color(1.0, 0.8, 0.2)]
+		var rc: Color = rarity_colors[mini(int(item["rarity"]), 4)]
+		item_line.text = "⚔️ %s" % item["name"]
+		item_line.add_theme_font_size_override("font_size", 11)
+		item_line.add_theme_color_override("font_color", rc)
+		vbox.add_child(item_line)
+	
+	popup.add_child(vbox)
+	popup.position = Vector2(60, 200)
+	popup.modulate.a = 0.0
+	add_child(popup)
+	
+	# 动画: 淡入 → 停留 → 淡出
+	var tw := create_tween()
+	tw.tween_property(popup, "modulate:a", 1.0, 0.2)
+	tw.tween_property(popup, "position:y", 190.0, 0.2).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.8)
+	tw.tween_property(popup, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(popup.queue_free)

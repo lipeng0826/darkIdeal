@@ -372,7 +372,7 @@ alignment = 1
 
 [node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab0"]
 layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(36, 36)
 size_flags_horizontal = 4
 stretch_mode = 5
 expand_mode = 3
@@ -390,7 +390,7 @@ alignment = 1
 
 [node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab1"]
 layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(36, 36)
 size_flags_horizontal = 4
 stretch_mode = 5
 expand_mode = 3
@@ -408,7 +408,7 @@ alignment = 1
 
 [node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab2"]
 layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(36, 36)
 size_flags_horizontal = 4
 stretch_mode = 5
 expand_mode = 3
@@ -426,7 +426,7 @@ alignment = 1
 
 [node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab3"]
 layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(36, 36)
 size_flags_horizontal = 4
 stretch_mode = 5
 expand_mode = 3
@@ -444,7 +444,7 @@ alignment = 1
 
 [node name="Icon" type="TextureRect" parent="SafeArea/VBox/BottomNav/NavRow/Tab4"]
 layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(36, 36)
 size_flags_horizontal = 4
 stretch_mode = 5
 expand_mode = 3
