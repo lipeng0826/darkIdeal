@@ -18,6 +18,7 @@ signal battle_log(message: String, color: Color)
 signal toast_message(text: String, color: Color)
 signal show_offline_rewards(rewards: Dictionary)
 signal wave_cleared(rewards: Dictionary)
+signal zone_run_changed
 signal combat_player_hit(enemy_id: int)
 signal combat_player_attack(enemy_id: int)  # 仅普攻触发动画，技能伤害不触发
 signal combat_enemy_hit(enemy_id: int)
@@ -49,6 +50,11 @@ var boss_timer := 0.0
 var boss_enrage := false
 var is_wave_transition := false
 var current_target_id := -1
+
+# 局内波次（每区域一轮：N 波小怪 → Boss）
+var zone_run_cleared := 0
+var zone_run_total := 3
+var zone_run_boss_ready := false
 
 # 战斗参数
 const PLAYER_ATTACK_SPEED := 1.2  # 秒
@@ -101,7 +107,25 @@ func _ready() -> void:
 	var start_zone: int = int(game_data["zone"]["current"])
 	LoreManager.on_zone_enter(game_data, start_zone)
 	# 延迟开波，确保 main_ui 已连接 wave_started 信号
-	call_deferred("_start_next_wave")
+	call_deferred("_begin_zone_run")
+
+func _begin_zone_run() -> void:
+	_reset_zone_run()
+	_start_next_wave()
+
+func get_zone_run_waves_total(zone_idx: int = -1) -> int:
+	if zone_idx < 0:
+		zone_idx = int(game_data["zone"]["current"])
+	return clampi(3 + int(zone_idx) / 2, 3, 5)
+
+func _reset_zone_run() -> void:
+	zone_run_cleared = 0
+	zone_run_total = get_zone_run_waves_total()
+	zone_run_boss_ready = false
+	zone_run_changed.emit()
+
+func _notify_zone_run() -> void:
+	zone_run_changed.emit()
 
 func _process(delta: float) -> void:
 	if not is_loaded:
@@ -256,6 +280,11 @@ func _on_wave_cleared(killed_enemies: Array) -> void:
 		_add_to_inventory(item)
 		item_obtained.emit(item)
 	achievement_system.check_achievements()
+	zone_run_cleared += 1
+	if zone_run_cleared >= zone_run_total:
+		zone_run_boss_ready = true
+		battle_log.emit("本局 %d 波已清完，可挑战 Boss!" % zone_run_total, Color(0.92, 0.78, 0.42))
+	_notify_zone_run()
 	is_wave_transition = true
 	wave_cleared.emit(rewards)
 
@@ -329,10 +358,18 @@ func _get_exp_bonus_pct() -> float:
 
 func continue_next_wave() -> void:
 	is_wave_transition = false
+	if zone_run_cleared >= zone_run_total:
+		zone_run_boss_ready = true
+		_notify_zone_run()
+		return
 	_start_next_wave()
 
 func _start_next_wave() -> void:
 	if is_boss_fight:
+		return
+	if zone_run_cleared >= zone_run_total:
+		zone_run_boss_ready = true
+		_notify_zone_run()
 		return
 	var zone_idx: int = game_data["zone"]["current"]
 	var player_lv: int = game_data["player"]["level"]
@@ -355,6 +392,7 @@ func _on_player_died() -> void:
 	attack_timer = 0.0
 	enemy_attack_timer = 0.0
 	is_wave_transition = false
+	_reset_zone_run()
 	_start_next_wave()
 	var msg := "你被击败了! 损失💰%s，虚弱5秒" % _fmt_num(gold_lost)
 	toast_message.emit(msg, Color(1.0, 0.3, 0.3))
@@ -364,6 +402,9 @@ func _spawn_enemy() -> void:
 
 # ==================== Boss战 ====================
 func start_boss_fight() -> bool:
+	if not zone_run_boss_ready:
+		toast_message.emit("请先完成本局 %d 波战斗" % zone_run_total, Color(0.95, 0.75, 0.35))
+		return false
 	var zone_idx: int = game_data["zone"]["current"]
 	var zone: Dictionary = DataManager.ZONES[zone_idx]
 	var player_lv: int = game_data["player"]["level"]
@@ -381,6 +422,7 @@ func start_boss_fight() -> bool:
 	
 	AudioManager.play_sfx("boss")
 	battle_log.emit("Boss出现: %s!" % boss_data["name"], Color(1.0, 0.2, 0.2))
+	_notify_zone_run()
 	return true
 
 func _process_boss_fight(delta: float) -> void:
@@ -495,6 +537,7 @@ func _on_boss_killed() -> void:
 	
 	is_boss_fight = false
 	is_wave_transition = true
+	_reset_zone_run()
 	rewards["is_boss"] = true
 	if LoreManager.is_ready():
 		var boss_lore: String = LoreManager.get_boss_lore(zone_idx)
@@ -509,10 +552,11 @@ func _on_boss_fight_lost() -> void:
 	is_boss_fight = false
 	player_hp = game_data["combat"]["max_hp"]
 	is_wave_transition = false
+	zone_run_boss_ready = true
 	battle_log.emit("Boss战失败...", Color(1.0, 0.3, 0.3))
-	toast_message.emit("Boss击败了你，提升实力再来！", Color(1.0, 0.3, 0.3))
+	toast_message.emit("Boss击败了你，可再次挑战！", Color(1.0, 0.3, 0.3))
 	AudioManager.play_sfx("death")
-	_start_next_wave()
+	_notify_zone_run()
 
 # ==================== 经验与升级 ====================
 func add_exp(amount: int) -> void:
@@ -882,6 +926,7 @@ func change_zone(zone_idx: int) -> bool:
 		return false
 	game_data["zone"]["current"] = zone_idx
 	is_wave_transition = false
+	_reset_zone_run()
 	_start_next_wave()
 	zone_changed.emit(zone_idx)
 	LoreManager.on_zone_enter(game_data, zone_idx)

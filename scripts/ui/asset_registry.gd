@@ -2,6 +2,10 @@ extends RefCounted
 class_name AssetRegistry
 ## 敌人名/装备 icon → 贴图路径映射（v2 战斗精灵）
 
+const HERO_PORTRAIT_BUST := "res://assets/sprites/hero_portrait_bust.png"
+const HERO_PORTRAIT_FRONT := "res://assets/sprites/hero_portrait_front.png"
+const HERO_BATTLE_IDLE := "res://assets/sprites/hero_iterations/hero_iter_08.png"
+
 # 精确敌人名 → Q版战斗精灵（与骑士主角风格统一，降低恐怖感）
 const ENEMY_EXACT_MAP := {
 	"暗影蝙蝠": "res://assets/generated/enemies_v2/enemy_shadow_bat_v2.png",
@@ -247,8 +251,20 @@ static func get_zone_map_texture(zone_idx: int) -> String:
 	var idx := clampi(zone_idx, 0, ZONE_MAP_TEXTURES.size() - 1)
 	return ZONE_MAP_TEXTURES[idx]
 
+static func get_hero_portrait_texture() -> Texture2D:
+	var bust: Texture2D = load_texture(HERO_PORTRAIT_BUST)
+	if bust:
+		return bust
+	return load_texture(HERO_PORTRAIT_FRONT)
+
 static func uses_chroma_key(path: String) -> bool:
 	return "_v2" in path or "hero_" in path or "sprites/player" in path or "sprites/enemy" in path or "generated/pets" in path
+
+static func should_flip_enemy_for_lane(tex_path: String) -> bool:
+	# generated 立绘默认朝左对玩家；旧版侧视图素材朝右需翻转
+	if "generated/enemies" in tex_path or "generated/bosses" in tex_path:
+		return false
+	return true
 
 static func load_texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):

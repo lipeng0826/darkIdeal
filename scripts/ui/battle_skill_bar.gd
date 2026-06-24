@@ -1,6 +1,9 @@
 extends Control
 class_name BattleSkillBar
-## 战斗区技能栏 - 图标 + CD 遮罩
+## 战斗区技能栏 - 圆形图标 + CD 遮罩
+
+const SLOT_SIZE := 40
+const SLOT_RADIUS := 20
 
 var _slots: Array[Control] = []
 var _flash_skill := ""
@@ -42,39 +45,34 @@ func _build_slots() -> void:
 
 func _make_slot() -> Control:
 	var wrap := Control.new()
-	wrap.custom_minimum_size = Vector2(44, 44)
+	wrap.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var bg := Panel.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bs := StyleBoxFlat.new()
-	bs.bg_color = Color(0.05, 0.04, 0.08, 0.82)
-	bs.border_color = Color(0.35, 0.30, 0.42, 0.65)
-	bs.set_border_width_all(1)
-	bs.set_corner_radius_all(8)
-	bg.add_theme_stylebox_override("panel", bs)
+	bg.add_theme_stylebox_override("panel", _circle_style(Color(0.05, 0.04, 0.08, 0.88), Color(0.35, 0.30, 0.42, 0.65), 1))
 	wrap.add_child(bg)
 
 	var icon := TextureRect.new()
 	icon.name = "Icon"
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon.offset_left = 4
-	icon.offset_top = 4
-	icon.offset_right = -4
-	icon.offset_bottom = -4
+	icon.offset_left = 5
+	icon.offset_top = 5
+	icon.offset_right = -5
+	icon.offset_bottom = -5
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.modulate = Color(0.35, 0.35, 0.38, 0.7)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_child(icon)
 
-	var cd_mask := ColorRect.new()
+	var cd_mask := Panel.new()
 	cd_mask.name = "CDMask"
 	cd_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cd_mask.color = Color(0.02, 0.02, 0.04, 0.72)
 	cd_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cd_mask.visible = false
+	cd_mask.add_theme_stylebox_override("panel", _circle_style(Color(0.02, 0.02, 0.04, 0.78), Color.TRANSPARENT, 0))
 	wrap.add_child(cd_mask)
 
 	var cd_lbl := Label.new()
@@ -82,7 +80,7 @@ func _make_slot() -> Control:
 	cd_lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cd_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cd_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	cd_lbl.add_theme_font_size_override("font_size", 11)
+	cd_lbl.add_theme_font_size_override("font_size", 10)
 	cd_lbl.add_theme_color_override("font_color", Color(0.95, 0.88, 0.55))
 	cd_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cd_lbl.visible = false
@@ -93,15 +91,18 @@ func _make_slot() -> Control:
 	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.visible = false
-	var rs := StyleBoxFlat.new()
-	rs.bg_color = Color(0.92, 0.78, 0.38, 0.0)
-	rs.border_color = Color(0.92, 0.78, 0.38, 0.95)
-	rs.set_border_width_all(2)
-	rs.set_corner_radius_all(8)
-	ring.add_theme_stylebox_override("panel", rs)
+	ring.add_theme_stylebox_override("panel", _circle_style(Color(0.92, 0.78, 0.38, 0.0), Color(0.92, 0.78, 0.38, 0.95), 2))
 	wrap.add_child(ring)
 
 	return wrap
+
+func _circle_style(bg: Color, border: Color, border_w: int) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(border_w)
+	s.set_corner_radius_all(SLOT_RADIUS)
+	return s
 
 func _on_skill_cast(skill_id: String, _color: Color, _pos: Vector2) -> void:
 	_flash_skill = skill_id
@@ -121,7 +122,7 @@ func _refresh() -> void:
 
 func _set_slot_empty(slot: Control) -> void:
 	var icon := slot.get_node_or_null("Icon") as TextureRect
-	var cd_mask := slot.get_node_or_null("CDMask") as ColorRect
+	var cd_mask := slot.get_node_or_null("CDMask") as Panel
 	var cd_lbl := slot.get_node_or_null("CDLabel") as Label
 	var ring := slot.get_node_or_null("Flash") as Panel
 	if icon:
@@ -137,7 +138,7 @@ func _set_slot_empty(slot: Control) -> void:
 func _set_slot_data(slot: Control, data: Dictionary) -> void:
 	var skill_id: String = data.get("id", "")
 	var icon := slot.get_node_or_null("Icon") as TextureRect
-	var cd_mask := slot.get_node_or_null("CDMask") as ColorRect
+	var cd_mask := slot.get_node_or_null("CDMask") as Panel
 	var cd_lbl := slot.get_node_or_null("CDLabel") as Label
 	var ring := slot.get_node_or_null("Flash") as Panel
 	var bg := slot.get_child(0) as Panel
@@ -169,7 +170,8 @@ func _set_slot_data(slot: Control, data: Dictionary) -> void:
 		ring.visible = (_flash_skill == skill_id and _flash_t > 0.0)
 
 	if bg:
-		var bs := bg.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+		var bs := _circle_style(Color(0.05, 0.04, 0.08, 0.88), Color.TRANSPARENT, 0)
 		var accent: Color = data.get("color", Color.WHITE)
-		bs.border_color = Color(accent.r, accent.g, accent.b, 0.85) if not on_cd else Color(0.35, 0.30, 0.42, 0.65)
+		bs.border_color = Color(accent.r, accent.g, accent.b, 0.9) if not on_cd else Color(0.35, 0.30, 0.42, 0.65)
+		bs.set_border_width_all(2 if not on_cd else 1)
 		bg.add_theme_stylebox_override("panel", bs)

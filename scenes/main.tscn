@@ -205,7 +205,7 @@ script = ExtResource("4_fx")
 
 [node name="BattleLog" type="RichTextLabel" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
-anchor_left = 0.38
+anchor_left = 0.37
 anchor_top = 0.84
 anchor_right = 0.98
 anchor_bottom = 0.99
@@ -250,34 +250,34 @@ vertical_alignment = 1
 [node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
 anchor_left = 0.05
-anchor_top = 0.845
+anchor_top = 0.848
 anchor_right = 0.95
-anchor_bottom = 0.925
-theme_override_constants/separation = 8
+anchor_bottom = 0.908
+theme_override_constants/separation = 6
 
 [node name="BossBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 38)
-theme_override_font_sizes/font_size = 12
+size_flags_horizontal = 0
+custom_minimum_size = Vector2(92, 30)
+theme_override_font_sizes/font_size = 10
 text = "挑战Boss"
 
 [node name="PrevZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(36, 38)
-theme_override_font_sizes/font_size = 14
+custom_minimum_size = Vector2(28, 30)
+theme_override_font_sizes/font_size = 11
 text = "◀"
 
 [node name="ZoneBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 38)
-theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(0, 30)
+theme_override_font_sizes/font_size = 9
 
 [node name="NextZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
 layout_mode = 2
-custom_minimum_size = Vector2(36, 38)
-theme_override_font_sizes/font_size = 14
+custom_minimum_size = Vector2(28, 30)
+theme_override_font_sizes/font_size = 11
 text = "▶"
 
 [node name="DmgLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
@@ -351,6 +351,7 @@ theme_override_constants/margin_bottom = 12
 
 [node name="ItemList" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/PanelView/PanelLayout/Scroll/ListContainer/ListMargin"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="BottomNav" type="PanelContainer" parent="SafeArea/VBox"]

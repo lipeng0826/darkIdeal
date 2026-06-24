@@ -27,8 +27,9 @@ func open(avatar_tex: Texture2D = null) -> void:
 	_build_ui()
 	var player: Dictionary = GameManager.game_data.get("player", {})
 	var combat: Dictionary = GameManager.game_data.get("combat", {})
-	if avatar_tex:
-		_avatar.texture = avatar_tex
+	var portrait: Texture2D = avatar_tex if avatar_tex else AssetRegistry.get_hero_portrait_texture()
+	if portrait:
+		_avatar.texture = portrait
 	_name_edit.text = PlayerProfileUtils.display_name(player)
 	_motto_edit.text = str(player.get("motto", ""))
 	_gender_opt.clear()
@@ -145,6 +146,7 @@ func _build_ui() -> void:
 	_avatar = TextureRect.new()
 	_avatar.custom_minimum_size = Vector2(72, 72)
 	_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_apply_avatar_chroma(_avatar)
 	avatar_frame.add_child(_avatar)
 	_level_l = Label.new()
 	_level_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -203,6 +205,15 @@ func _build_ui() -> void:
 	_style_primary_btn(save)
 	save.pressed.connect(_on_save)
 	footer.add_child(save)
+
+func _apply_avatar_chroma(rect: TextureRect) -> void:
+	var shader: Shader = load("res://shaders/chroma_key.gdshader")
+	if shader:
+		var mat := ShaderMaterial.new()
+		mat.shader = shader
+		mat.set_shader_parameter("threshold", 0.40)
+		mat.set_shader_parameter("smoothing", 0.15)
+		rect.material = mat
 
 func _make_field_label(text: String) -> Label:
 	var l := Label.new()

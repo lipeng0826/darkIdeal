@@ -28,11 +28,19 @@ const UNIT_W := 96.0
 const UNIT_H := 108.0
 
 var _depth_scale := 1.0
+var _lane_mode := true
+var _lane_slot := 0
+var _is_boss_unit := false
+var _flip_facing := true
 
-func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter: bool = false, sprite_scale_mult: float = 1.0) -> void:
+func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter: bool = false, sprite_scale_mult: float = 1.0, lane_mode: bool = true, lane_slot: int = 0) -> void:
 	_ensure_nodes()
 	_skip_enter = skip_enter
 	_sprite_scale_mult = sprite_scale_mult
+	_lane_mode = lane_mode
+	_lane_slot = lane_slot
+	_is_boss_unit = sprite_scale_mult >= BattleLayout.BOSS_SCALE_THRESHOLD
+	_flip_facing = AssetRegistry.should_flip_enemy_for_lane(tex_path) if lane_mode else false
 	enemy_id = int(enemy["id"])
 	name_label.text = enemy["name"]
 	hp_bar.max_value = int(enemy["max_hp"])
@@ -42,8 +50,12 @@ func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter:
 	if arena_size.x < 80.0:
 		arena_size = Vector2(680, 360)
 	_arena_h = arena_size.y
-	var slot: int = clampi(int(enemy.get("slot_index", 0)), 0, BattleLayout.ENEMY_SLOTS.size() - 1)
-	var slot_info: Dictionary = BattleLayout.get_enemy_slot(slot, arena_size)
+	var slot_info: Dictionary
+	if lane_mode:
+		slot_info = BattleLayout.get_lane_enemy_slot(arena_size, lane_slot, _is_boss_unit)
+	else:
+		var slot: int = clampi(int(enemy.get("slot_index", 0)), 0, BattleLayout.ENEMY_SLOTS.size() - 1)
+		slot_info = BattleLayout.get_enemy_slot(slot, arena_size)
 	_depth_scale = float(slot_info["scale"]) * _sprite_scale_mult
 	var ground_y: float = float(slot_info["ground_y"])
 	var unit_h: float = maxf(108.0, _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _depth_scale + 30.0)
@@ -59,6 +71,8 @@ func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter:
 		_layout_sprite(tex, unit_h, float(slot_info["depth"]))
 		if AssetRegistry.uses_chroma_key(tex_path):
 			_apply_chroma_key(sprite)
+		if _lane_mode:
+			_apply_lane_facing()
 	else:
 		var fb: Texture2D = load("res://assets/sprites/enemy_idle_1.png")
 		if fb:
@@ -72,9 +86,15 @@ func setup(enemy: Dictionary, tex_path: String, arena_size: Vector2, skip_enter:
 		position = _home_pos
 		modulate.a = 1.0
 	else:
-		_walk_start_x = arena_size.x + 12.0
+		if _lane_mode:
+			_walk_start_x = arena_size.x + BattleLayout.ENEMY_SPAWN_X_OFFSET
+			_walk_duration = 1.05
+		else:
+			_walk_start_x = arena_size.x + 12.0
+			_walk_duration = 0.85
 		position = Vector2(_walk_start_x, _home_pos.y)
 		modulate.a = 1.0
+	_apply_lane_facing()
 
 func play_enter() -> void:
 	if _skip_enter:
@@ -91,18 +111,34 @@ func _process(delta: float) -> void:
 	var t: float = clampf(_walk_elapsed / _walk_duration, 0.0, 1.0)
 	var ease_t: float = t * t * (3.0 - 2.0 * t)
 	position.x = lerpf(_walk_start_x, _home_pos.x, ease_t)
-	var step: float = _walk_elapsed * 10.0
-	position.y = _home_pos.y + abs(sin(step)) * -3.0
-	var squash: float = 1.0 + sin(step) * 0.04
-	sprite.scale = Vector2(1.0, squash)
-	sprite.rotation = sin(step * 0.5) * 0.03
+	var step: float = _walk_elapsed * (12.0 if _lane_mode else 10.0)
+	position.y = _home_pos.y + abs(sin(step)) * (-4.0 if _lane_mode else -3.0)
+	var squash: float = 1.0 + sin(step) * (0.05 if _lane_mode else 0.04)
+	sprite.scale = Vector2(absf(squash), squash)
+	sprite.rotation = sin(step * 0.5) * (-0.025 if _lane_mode else 0.03)
 	if t >= 1.0:
 		position = _home_pos
-		sprite.scale = Vector2.ONE
-		sprite.rotation = 0.0
+		_restore_sprite_pose()
 		_is_walking_in = false
 		set_process(false)
 		enter_finished.emit()
+
+func move_to_lane_slot(arena_size: Vector2, lane_slot: int, duration: float = 0.28) -> void:
+	_lane_slot = lane_slot
+	var slot_info: Dictionary = BattleLayout.get_lane_enemy_slot(arena_size, lane_slot, _is_boss_unit)
+	var ground_y: float = float(slot_info["ground_y"])
+	var unit_h: float = size.y
+	var target := Vector2(float(slot_info["x"]) - UNIT_W * 0.5, ground_y - unit_h)
+	if duration <= 0.0:
+		position = target
+		_home_pos = target
+		return
+	var tw := create_tween()
+	tw.tween_property(self, "position", target, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(func(): _home_pos = target)
+
+func get_lane_slot() -> int:
+	return _lane_slot
 
 func update_hp(hp: int, max_hp: int) -> void:
 	hp_bar.max_value = max_hp
@@ -129,13 +165,21 @@ func play_hit() -> void:
 	_hit_tween.parallel().tween_property(sprite, "modulate", Color.WHITE, 0.12)
 	_hit_tween.parallel().tween_property(sprite, "rotation", 0.0, 0.12)
 	_hit_tween.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.12)
-	_hit_tween.tween_callback(func(): _is_hit_reacting = false)
+	_hit_tween.tween_callback(func():
+		_restore_sprite_pose()
+		_is_hit_reacting = false)
 
 func play_death(on_done: Callable = Callable()) -> void:
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(self, "modulate:a", 0.0, 0.35)
-	tw.tween_property(self, "position:y", position.y + 18, 0.35)
+	tw.tween_property(self, "modulate:a", 0.0, 0.38)
+	if _lane_mode:
+		tw.tween_property(self, "position:x", position.x + 140.0, 0.38).set_ease(Tween.EASE_IN)
+		tw.tween_property(self, "position:y", position.y + 10.0, 0.38)
+		if sprite:
+			tw.tween_property(sprite, "rotation", 0.35, 0.38)
+	else:
+		tw.tween_property(self, "position:y", position.y + 18, 0.35)
 	tw.set_parallel(false)
 	tw.tween_callback(func():
 		if on_done.is_valid():
@@ -150,15 +194,15 @@ func play_attack_toward(_target_x: float) -> void:
 	_is_attacking = true
 	set_process(false)
 	var orig_x: float = position.x
+	var lunge: float = -34.0 if _lane_mode else -26.0
+	var windup: float = -10.0 if _lane_mode else -8.0
 	_attack_tween = create_tween()
-	# 蓄力
-	_attack_tween.tween_property(sprite, "rotation", 0.06, 0.10)
-	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(0.92, 1.08), 0.10)
-	_attack_tween.tween_property(self, "position:x", orig_x - 8.0, 0.08)
-	# 出手
-	_attack_tween.tween_property(self, "position:x", orig_x - 26.0, 0.11).set_ease(Tween.EASE_OUT)
-	_attack_tween.parallel().tween_property(sprite, "rotation", -0.12, 0.11)
-	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(1.06, 0.94), 0.11)
+	_attack_tween.tween_property(sprite, "rotation", 0.08 if _lane_mode else 0.06, 0.10)
+	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(0.94, 1.08), 0.10)
+	_attack_tween.tween_property(self, "position:x", orig_x + windup, 0.08)
+	_attack_tween.tween_property(self, "position:x", orig_x + lunge, 0.11).set_ease(Tween.EASE_OUT)
+	_attack_tween.parallel().tween_property(sprite, "rotation", -0.10 if _lane_mode else -0.12, 0.11)
+	_attack_tween.parallel().tween_property(sprite, "scale", Vector2(1.08, 0.94), 0.11)
 	_attack_tween.tween_callback(func():
 		sprite.modulate = Color(1.15, 1.05, 0.92))
 	# 收招
@@ -167,14 +211,28 @@ func play_attack_toward(_target_x: float) -> void:
 	_attack_tween.parallel().tween_property(sprite, "rotation", 0.0, 0.15)
 	_attack_tween.parallel().tween_property(sprite, "scale", Vector2.ONE, 0.15)
 	_attack_tween.tween_callback(func():
+		_restore_sprite_pose()
 		_is_attacking = false
 		if not _is_walking_in:
 			set_process(false))
 
+func _apply_lane_facing() -> void:
+	if not sprite:
+		return
+	sprite.flip_h = _flip_facing
+
+func _restore_sprite_pose() -> void:
+	if not sprite:
+		return
+	sprite.scale = Vector2.ONE
+	sprite.rotation = 0.0
+	_apply_lane_facing()
+
 func _layout_sprite(tex: Texture2D, unit_h: float, depth: float = 0.0) -> void:
 	var tex_w: float = maxf(1.0, float(tex.get_width()))
 	var tex_h: float = maxf(1.0, float(tex.get_height()))
-	var display_h: float = _arena_h * BattleLayout.ENEMY_HEIGHT_RATIO * _depth_scale
+	var height_ratio: float = BattleLayout.BOSS_HEIGHT_RATIO if _is_boss_unit else BattleLayout.MOB_HEIGHT_RATIO
+	var display_h: float = _arena_h * height_ratio * _depth_scale
 	var display_w: float = display_h * (tex_w / tex_h)
 	sprite.custom_minimum_size = Vector2(display_w, display_h)
 	sprite.size = Vector2(display_w, display_h)
