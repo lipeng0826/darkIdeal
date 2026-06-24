@@ -4,7 +4,7 @@ class_name AssetRegistry
 
 const HERO_PORTRAIT_BUST := "res://assets/sprites/hero_portrait_bust.png"
 const HERO_PORTRAIT_FRONT := "res://assets/sprites/hero_portrait_front.png"
-const HERO_BATTLE_IDLE := "res://assets/sprites/hero_battle/hero_idle_sheet.png"
+const HERO_BATTLE_IDLE := "res://assets/sprites/hero_iterations/hero_iter_08.png"
 
 # 精确敌人名 → Q版战斗精灵（与骑士主角风格统一，降低恐怖感）
 const ENEMY_EXACT_MAP := {

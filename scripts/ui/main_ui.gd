@@ -123,7 +123,7 @@ const NAV_TABS: Array = [
 var _nav_buttons: Array[NavTabButton] = []
 var _frame_timer := 0.0
 var _current_frame := 0
-const FRAME_DURATION := 0.14  # 待机精灵表帧间隔
+const FRAME_DURATION := 0.4
 
 # ==================== 初始化 ====================
 func _ready() -> void:
