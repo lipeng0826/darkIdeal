@@ -12,12 +12,14 @@ signal gold_changed(amount: int)
 signal gems_changed(amount: int)
 signal item_obtained(item: Dictionary)
 signal stats_updated
+signal player_profile_changed
 signal zone_changed(zone_index: int)
 signal battle_log(message: String, color: Color)
 signal toast_message(text: String, color: Color)
 signal show_offline_rewards(rewards: Dictionary)
 signal wave_cleared(rewards: Dictionary)
 signal combat_player_hit(enemy_id: int)
+signal combat_player_attack(enemy_id: int)  # 仅普攻触发动画，技能伤害不触发
 signal combat_enemy_hit(enemy_id: int)
 signal damage_popup(target_id: int, amount: int, kind: String)
 
@@ -168,6 +170,7 @@ func _player_attack_enemy() -> void:
 	AudioManager.play_sfx("hit" if not is_crit else "crit")
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
+	combat_player_attack.emit(int(target["id"]))
 	combat_player_hit.emit(int(target["id"]))
 	damage_popup.emit(int(target["id"]), dmg, "crit" if is_crit else "normal")
 
@@ -211,7 +214,6 @@ func apply_skill_damage(dmg: int, skill_name: String, color: Color) -> void:
 	battle_log.emit("✦ %s: %d 伤害" % [skill_name, dmg], color)
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
-	combat_player_hit.emit(int(target["id"]))
 	damage_popup.emit(int(target["id"]), dmg, "skill")
 
 func apply_skill_aoe_damage(dmg: int, skill_name: String, color: Color) -> void:
@@ -224,7 +226,6 @@ func apply_skill_aoe_damage(dmg: int, skill_name: String, color: Color) -> void:
 		return
 	for enemy in enemies:
 		battle_wave.damage_enemy(int(enemy["id"]), scaled)
-		combat_player_hit.emit(int(enemy["id"]))
 		damage_popup.emit(int(enemy["id"]), scaled, "skill")
 	battle_log.emit("✦ %s: 横扫 %d 名敌人，各 %d 伤害" % [skill_name, enemies.size(), scaled], color)
 	_sync_front_target()
@@ -243,7 +244,6 @@ func apply_dot_damage(dmg: int) -> void:
 		return
 	battle_wave.damage_enemy(int(target["id"]), dmg)
 	_sync_front_target()
-	combat_player_hit.emit(int(target["id"]))
 	damage_popup.emit(int(target["id"]), dmg, "skill")
 
 func _on_wave_cleared(killed_enemies: Array) -> void:
@@ -424,6 +424,7 @@ func _player_attack_boss() -> void:
 		player_hp = mini(player_hp + heal, int(combat["max_hp"]))
 	
 	AudioManager.play_sfx("hit" if not is_crit else "crit")
+	combat_player_attack.emit(-1)
 	combat_player_hit.emit(-1)
 	damage_popup.emit(BOSS_POPUP_ID, dmg, "crit" if is_crit else "normal")
 	
@@ -570,6 +571,23 @@ func spend_gems(amount: int) -> bool:
 		return true
 	return false
 
+func update_player_profile(patch: Dictionary) -> bool:
+	var name: String = PlayerProfileUtils.sanitize_name(str(patch.get("name", "")))
+	var err: String = PlayerProfileUtils.validate_name(name)
+	if not err.is_empty():
+		toast_message.emit(err, Color(1.0, 0.45, 0.35))
+		return false
+	game_data["player"]["name"] = name
+	game_data["player"]["gender"] = PlayerProfileUtils.normalize_gender(str(patch.get("gender", "secret")))
+	game_data["player"]["motto"] = PlayerProfileUtils.sanitize_motto(str(patch.get("motto", "")))
+	player_profile_changed.emit()
+	stats_updated.emit()
+	toast_message.emit("角色档案已保存", Color(0.7, 0.9, 1.0))
+	return true
+
+func get_player_display_name() -> String:
+	return PlayerProfileUtils.display_name(game_data.get("player", {}))
+
 # ==================== 装备系统 ====================
 func _add_to_inventory(item: Dictionary) -> void:
 	item = DataManager.normalize_item(item)
@@ -581,6 +599,7 @@ func _add_to_inventory(item: Dictionary) -> void:
 	# 自动装备逻辑
 	if game_data["settings"]["auto_equip"]:
 		_try_auto_equip(item)
+	mark_new_item(str(item.get("uid", "")))
 
 func equip_item(item: Dictionary) -> void:
 	item = DataManager.normalize_item(item)
@@ -601,6 +620,10 @@ func equip_item(item: Dictionary) -> void:
 		game_data["inventory"].append(old_item)
 	
 	_recalculate_stats()
+	stats_updated.emit()
+	var ri: Dictionary = DataManager.RARITY_INFO[int(item["rarity"]) as DataManager.Rarity]
+	toast_message.emit("已装备: %s" % item["name"], ri["color"])
+	_remove_new_item_marker(str(item.get("uid", "")))
 
 func unequip_item(slot: int) -> void:
 	var slot_key := str(slot)
@@ -614,18 +637,48 @@ func unequip_item(slot: int) -> void:
 	game_data["equipment"][slot_key] = null
 	_recalculate_stats()
 
-func sell_item(item: Dictionary) -> void:
-	# 从背包移除
+func sell_item(item: Dictionary, silent: bool = false) -> void:
+	item = DataManager.normalize_item(item)
+	if item.is_empty():
+		return
+	if is_item_locked(str(item.get("uid", ""))):
+		toast_message.emit("装备已锁定，无法出售", Color(1.0, 0.5, 0.3))
+		return
 	for i in range(game_data["inventory"].size()):
 		if game_data["inventory"][i]["uid"] == item["uid"]:
 			game_data["inventory"].remove_at(i)
 			break
-	# 获得金币 (根据品质)
-	var rarity_val: int = int(item["rarity"])
-	var level_val: int = int(item["level"])
-	var sell_gold: int = (rarity_val + 1) * 50 * level_val
+	var sell_gold: int = InventoryUtils.sell_price(item)
 	add_gold(sell_gold)
-	toast_message.emit("出售获得 %d 金币" % sell_gold, Color(1.0, 0.85, 0.0))
+	_remove_new_item_marker(str(item.get("uid", "")))
+	if not silent:
+		toast_message.emit("出售 %s 获得 %d 金币" % [item["name"], sell_gold], Color(1.0, 0.85, 0.0))
+	stats_updated.emit()
+
+func equip_best_upgrades() -> int:
+	var upgrades: Array = InventoryUtils.collect_equip_upgrades(game_data["inventory"], game_data["equipment"])
+	var count := 0
+	for item in upgrades:
+		equip_item(item)
+		count += 1
+	if count > 0:
+		toast_message.emit("一键换装: 替换 %d 件装备" % count, Color(0.5, 1.0, 0.6))
+	return count
+
+func sell_junk_items() -> int:
+	var junk: Array = InventoryUtils.collect_junk_items(game_data["inventory"], game_data["equipment"])
+	if junk.is_empty():
+		toast_message.emit("没有可出售的低级装备", Color(0.65, 0.65, 0.7))
+		return 0
+	var total_gold := 0
+	var count := junk.size()
+	for item in junk.duplicate():
+		if is_item_locked(str(item.get("uid", ""))):
+			continue
+		total_gold += InventoryUtils.sell_price(item)
+		sell_item(item, true)
+	toast_message.emit("出售 %d 件低级装备，获得 %d 金币" % [count, total_gold], Color(1.0, 0.85, 0.0))
+	return count
 
 func _try_auto_equip(item: Dictionary) -> void:
 	item = DataManager.normalize_item(item)
@@ -634,11 +687,60 @@ func _try_auto_equip(item: Dictionary) -> void:
 	if current == null:
 		equip_item(item)
 		return
-	# 比较品质和战力
 	if item["rarity"] > current["rarity"]:
 		equip_item(item)
 	elif item["rarity"] == current["rarity"] and _item_power(item) > _item_power(current):
 		equip_item(item)
+
+func mark_new_item(uid: String) -> void:
+	if uid.is_empty():
+		return
+	if not game_data.has("inventory_meta"):
+		game_data["inventory_meta"] = {"new_uids": [], "locked_uids": []}
+	var uids: Array = game_data["inventory_meta"].get("new_uids", [])
+	if uid not in uids:
+		uids.append(uid)
+	game_data["inventory_meta"]["new_uids"] = uids
+
+func is_new_item(uid: String) -> bool:
+	if uid.is_empty() or not game_data.has("inventory_meta"):
+		return false
+	return uid in game_data["inventory_meta"].get("new_uids", [])
+
+func _remove_new_item_marker(uid: String) -> void:
+	if not game_data.has("inventory_meta"):
+		return
+	var uids: Array = game_data["inventory_meta"].get("new_uids", [])
+	uids.erase(uid)
+	game_data["inventory_meta"]["new_uids"] = uids
+
+func clear_new_item_markers() -> void:
+	if game_data.has("inventory_meta"):
+		game_data["inventory_meta"]["new_uids"] = []
+
+func toggle_item_lock(uid: String) -> bool:
+	if uid.is_empty():
+		return false
+	if not game_data.has("inventory_meta"):
+		game_data["inventory_meta"] = {"new_uids": [], "locked_uids": []}
+	var locked: Array = game_data["inventory_meta"].get("locked_uids", [])
+	var now_locked: bool
+	if uid in locked:
+		locked.erase(uid)
+		now_locked = false
+		toast_message.emit("已解锁装备", Color(0.7, 0.85, 1.0))
+	else:
+		locked.append(uid)
+		now_locked = true
+		toast_message.emit("已锁定装备（防误售）", Color(1.0, 0.85, 0.4))
+	game_data["inventory_meta"]["locked_uids"] = locked
+	stats_updated.emit()
+	return now_locked
+
+func is_item_locked(uid: String) -> bool:
+	if uid.is_empty() or not game_data.has("inventory_meta"):
+		return false
+	return uid in game_data["inventory_meta"].get("locked_uids", [])
 
 func _item_power(item: Dictionary) -> int:
 	return DataManager.item_power(DataManager.normalize_item(item))

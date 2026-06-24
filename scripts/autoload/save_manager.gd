@@ -28,6 +28,8 @@ func create_new_save() -> Dictionary:
 		# 玩家基本信息
 		"player": {
 			"name": "暗影行者",
+			"gender": "secret",
+			"motto": "",
 			"level": 1,
 			"exp": 0,
 			"gold": 0,
@@ -160,6 +162,11 @@ func create_new_save() -> Dictionary:
 			"total_levels": 0,
 		},
 		
+		"inventory_meta": {
+			"new_uids": [],
+			"locked_uids": [],
+		},
+		
 		# 设置
 		"settings": {
 			"sound": true,
@@ -228,7 +235,26 @@ func _normalize_loaded_data(data: Dictionary) -> Dictionary:
 	ProgressionManager.sync_unlocks(data, lv, false)
 	LoreManager.ensure_lore_save(data)
 	_migrate_lore_for_existing_save(data)
+	if not data.has("inventory_meta"):
+		data["inventory_meta"] = {"new_uids": [], "locked_uids": []}
+	elif not data["inventory_meta"].has("locked_uids"):
+		data["inventory_meta"]["locked_uids"] = []
+	_ensure_player_profile(data)
 	return data
+
+func _ensure_player_profile(data: Dictionary) -> void:
+	if not data.has("player"):
+		data["player"] = {}
+	var player: Dictionary = data["player"]
+	if not player.has("name") or str(player.get("name", "")).strip_edges().is_empty():
+		player["name"] = PlayerProfileUtils.DEFAULT_NAME
+	if not player.has("gender"):
+		player["gender"] = "secret"
+	else:
+		player["gender"] = PlayerProfileUtils.normalize_gender(str(player["gender"]))
+	if not player.has("motto"):
+		player["motto"] = ""
+	data["player"] = player
 
 func _migrate_lore_for_existing_save(data: Dictionary) -> void:
 	var lore: Dictionary = data["lore"]

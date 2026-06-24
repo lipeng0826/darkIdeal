@@ -3,6 +3,8 @@ class_name EquipCompareDialog
 ## 装备对比弹窗 - 双击背包装备时展示
 
 signal equip_confirmed(item: Dictionary)
+signal sell_requested(item: Dictionary)
+signal lock_toggled(item: Dictionary)
 signal closed
 
 var _new_item: Dictionary = {}
@@ -11,8 +13,14 @@ var _old_item: Dictionary = {}
 var _overlay: ColorRect
 var _panel: PanelContainer
 var _title: Label
+var _recommend_banner: Label
+var _icon_row: HBoxContainer
+var _new_icon: TextureRect
+var _old_icon: TextureRect
 var _compare_body: RichTextLabel
 var _equip_btn: Button
+var _sell_btn: Button
+var _lock_btn: Button
 var _cancel_btn: Button
 
 func _ready() -> void:
@@ -24,6 +32,10 @@ func _ready() -> void:
 		_equip_btn.pressed.connect(_on_equip)
 	if _cancel_btn:
 		_cancel_btn.pressed.connect(_on_cancel)
+	if _sell_btn:
+		_sell_btn.pressed.connect(_on_sell)
+	if _lock_btn:
+		_lock_btn.pressed.connect(_on_lock)
 
 func open(new_item: Dictionary, old_item: Dictionary = {}) -> void:
 	_new_item = DataManager.normalize_item(new_item)
@@ -32,6 +44,14 @@ func open(new_item: Dictionary, old_item: Dictionary = {}) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if _title:
 		_title.text = "装备对比"
+	var p_delta: int = _item_power(_new_item) - _item_power(_old_item)
+	if _recommend_banner:
+		var action: String = InventoryUtils.recommend_action(p_delta)
+		var banner_col := Color(0.35, 0.55, 0.38) if p_delta > 0 else (Color(0.55, 0.32, 0.32) if p_delta < 0 else Color(0.35, 0.35, 0.42))
+		_recommend_banner.text = action
+		_recommend_banner.add_theme_color_override("font_color", banner_col.lerp(Color.WHITE, 0.35))
+		_recommend_banner.visible = true
+	_update_icon_previews()
 	if _compare_body:
 		_compare_body.text = _build_compare_bbcode(_new_item, _old_item)
 	if _equip_btn:
@@ -47,6 +67,44 @@ func open(new_item: Dictionary, old_item: Dictionary = {}) -> void:
 		else:
 			_equip_btn.text = "替换 (持平)"
 			_equip_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
+	if _sell_btn:
+		var sell_g: int = InventoryUtils.sell_price(_new_item)
+		_sell_btn.text = "出售 +%d" % sell_g
+		_sell_btn.visible = true
+	if _lock_btn:
+		var uid: String = str(_new_item.get("uid", ""))
+		var locked: bool = GameManager.is_item_locked(uid)
+		_lock_btn.text = "解锁" if locked else "锁定"
+		_lock_btn.visible = not uid.is_empty()
+
+func _update_icon_previews() -> void:
+	if _new_icon == null:
+		return
+	var new_path: String = AssetRegistry.get_equip_icon(_new_item)
+	var new_tex: Texture2D = AssetRegistry.load_texture(new_path)
+	if new_tex:
+		_new_icon.texture = new_tex
+	if _old_item.is_empty():
+		_old_icon.texture = null
+		_old_icon.modulate = Color(0.4, 0.4, 0.45, 0.5)
+	else:
+		var old_path: String = AssetRegistry.get_equip_icon(_old_item)
+		var old_tex: Texture2D = AssetRegistry.load_texture(old_path)
+		_old_icon.texture = old_tex
+		_old_icon.modulate = Color.WHITE
+
+func _on_lock() -> void:
+	if not _new_item.is_empty():
+		lock_toggled.emit(_new_item)
+		var uid: String = str(_new_item.get("uid", ""))
+		if _lock_btn:
+			var locked: bool = GameManager.is_item_locked(uid)
+			_lock_btn.text = "解锁" if locked else "锁定"
+
+func _on_sell() -> void:
+	if not _new_item.is_empty():
+		sell_requested.emit(_new_item)
+	_close()
 
 func _on_equip() -> void:
 	if not _new_item.is_empty():
@@ -78,6 +136,8 @@ func _build_compare_bbcode(new_item: Dictionary, old_item: Dictionary) -> String
 			new_r["name"], old_r["color"].to_html(false), old_r["name"],
 		])
 	lines.append("")
+	var slot_i: int = int(new_item.get("slot", 0))
+	lines.append("[color=#888896]部位: %s[/color]" % DataManager.SLOT_NAMES.get(slot_i as DataManager.SlotType, ""))
 	var all_stats: Dictionary = {}
 	for sk in new_item.get("stats", {}):
 		all_stats[int(sk)] = true
@@ -163,6 +223,45 @@ func _build_ui() -> void:
 	_title.add_theme_font_size_override("font_size", 14)
 	_title.add_theme_color_override("font_color", Color(0.92, 0.88, 0.72))
 	vbox.add_child(_title)
+	_recommend_banner = Label.new()
+	_recommend_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_recommend_banner.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(_recommend_banner)
+	_icon_row = HBoxContainer.new()
+	_icon_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_icon_row.add_theme_constant_override("separation", 24)
+	vbox.add_child(_icon_row)
+	var old_col := VBoxContainer.new()
+	old_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	_icon_row.add_child(old_col)
+	var old_cap := Label.new()
+	old_cap.text = "当前"
+	old_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	old_cap.add_theme_font_size_override("font_size", 9)
+	old_cap.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	old_col.add_child(old_cap)
+	_old_icon = TextureRect.new()
+	_old_icon.custom_minimum_size = Vector2(48, 48)
+	_old_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	old_col.add_child(_old_icon)
+	var arrow := Label.new()
+	arrow.text = "→"
+	arrow.add_theme_font_size_override("font_size", 18)
+	arrow.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	_icon_row.add_child(arrow)
+	var new_col := VBoxContainer.new()
+	new_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	_icon_row.add_child(new_col)
+	var new_cap := Label.new()
+	new_cap.text = "候选"
+	new_cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	new_cap.add_theme_font_size_override("font_size", 9)
+	new_cap.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
+	new_col.add_child(new_cap)
+	_new_icon = TextureRect.new()
+	_new_icon.custom_minimum_size = Vector2(48, 48)
+	_new_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	new_col.add_child(_new_icon)
 	_compare_body = RichTextLabel.new()
 	_compare_body.bbcode_enabled = true
 	_compare_body.fit_content = true
@@ -177,9 +276,19 @@ func _build_ui() -> void:
 	vbox.add_child(footer)
 	_cancel_btn = Button.new()
 	_cancel_btn.text = "取消"
-	_cancel_btn.custom_minimum_size = Vector2(100, 32)
+	_cancel_btn.custom_minimum_size = Vector2(72, 32)
 	_style_btn_outline(_cancel_btn)
 	footer.add_child(_cancel_btn)
+	_sell_btn = Button.new()
+	_sell_btn.text = "出售"
+	_sell_btn.custom_minimum_size = Vector2(72, 32)
+	_style_btn_outline(_sell_btn)
+	footer.add_child(_sell_btn)
+	_lock_btn = Button.new()
+	_lock_btn.text = "锁定"
+	_lock_btn.custom_minimum_size = Vector2(64, 32)
+	_style_btn_outline(_lock_btn)
+	footer.add_child(_lock_btn)
 	_equip_btn = Button.new()
 	_equip_btn.text = "装备"
 	_equip_btn.custom_minimum_size = Vector2(120, 32)

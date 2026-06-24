@@ -72,14 +72,27 @@ var _boss_unit: BattleEnemyUnit = null
 var _spawn_queue: Array = []
 var _spawn_delay := 0.0
 var _player_atk_anim_playing := false
+var _player_atk_safety_timer := 0.0
+const PLAYER_ATK_ANIM_MAX := 0.55
 var _wave_label: Label
 var _stage_info_label: Label
 var _left_hud_stats_label: Label
 var _arena_polish_done := false
 var _equip_tooltip: EquipTooltip
 var _equip_compare: EquipCompareDialog
+var _equip_sell_confirm: EquipSellConfirm
+var _character_profile: CharacterProfileDialog
 var _dmg_popups: DamagePopupLayer
 var _skill_bar: BattleSkillBar
+var _inv_sort_mode: InventoryUtils.SortMode = InventoryUtils.SortMode.POWER_DESC
+var _inv_filter_upgrades := false
+var _inv_list_mode := false
+var _quest_filter := "all"
+const EQUIP_PAPER_LAYOUT: Array = [
+	[-1, DataManager.SlotType.HELMET, -1],
+	[DataManager.SlotType.WEAPON, DataManager.SlotType.ARMOR, DataManager.SlotType.AMULET],
+	[-1, DataManager.SlotType.BOOTS, DataManager.SlotType.RING],
+]
 const SPAWN_STAGGER := 0.35
 
 func _get_player_sprite() -> TextureRect:
@@ -110,7 +123,16 @@ func _ready() -> void:
 	_equip_compare = EquipCompareDialog.new()
 	panel_view.add_child(_equip_compare)
 	_equip_compare.equip_confirmed.connect(_on_equip_compare_confirm)
+	_equip_compare.sell_requested.connect(_on_equip_compare_sell)
+	_equip_compare.lock_toggled.connect(_on_equip_lock_toggle)
+	_equip_sell_confirm = EquipSellConfirm.new()
+	panel_view.add_child(_equip_sell_confirm)
+	_equip_sell_confirm.confirmed.connect(_on_sell_confirm_ok)
+	_character_profile = CharacterProfileDialog.new()
+	panel_view.add_child(_character_profile)
+	_character_profile.profile_saved.connect(_on_profile_saved)
 	_apply_theme()
+	_setup_player_avatar_click()
 	_setup_premium_nav()
 	_setup_battle_arena_polish()
 	_load_player_sprite()
@@ -134,6 +156,7 @@ func _connect_all() -> void:
 	GameManager.toast_message.connect(_show_toast)
 	GameManager.player_level_up.connect(func(_l: int): _shake_t = 0.25; _refresh_top(); _update_stage_info())
 	GameManager.stats_updated.connect(func(): _refresh_top())
+	GameManager.player_profile_changed.connect(_on_player_profile_changed)
 	GameManager.zone_changed.connect(func(_z: int): _refresh_zone(); _clear_enemy_units())
 	GameManager.show_offline_rewards.connect(_show_offline)
 	GameManager.item_obtained.connect(func(item: Dictionary):
@@ -156,7 +179,7 @@ func _connect_battle() -> void:
 	GameManager.battle_wave.enemy_hp_changed.connect(_on_enemy_hp_changed)
 	GameManager.battle_wave.enemy_died.connect(_on_enemy_unit_died)
 	GameManager.skill_system.skill_cast.connect(_on_skill_cast)
-	GameManager.combat_player_hit.connect(_on_combat_player_hit)
+	GameManager.combat_player_attack.connect(_on_combat_player_attack)
 	GameManager.combat_enemy_hit.connect(_on_combat_enemy_hit)
 	GameManager.damage_popup.connect(_on_damage_popup)
 
@@ -167,6 +190,7 @@ func _process(delta: float) -> void:
 		_update_battle(delta)
 		_idle_animation(delta)
 		_process_spawn_queue(delta)
+		_update_player_atk_safety(delta)
 	_refresh_top()
 	if _shake_t > 0:
 		_shake_t -= delta
@@ -569,6 +593,77 @@ func _refresh_player_avatar() -> void:
 		if tex and player_avatar:
 			player_avatar.texture = tex
 
+func _setup_player_avatar_click() -> void:
+	if player_avatar:
+		player_avatar.mouse_filter = Control.MOUSE_FILTER_STOP
+		player_avatar.tooltip_text = "点击查看角色档案"
+		player_avatar.gui_input.connect(_on_battle_avatar_input)
+
+func _on_battle_avatar_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			_open_character_profile()
+
+func _open_character_profile() -> void:
+	if not _character_profile:
+		return
+	if player_visual:
+		_character_profile.set_avatar_texture(player_visual.get_avatar_texture())
+	_character_profile.open()
+	AudioManager.play_sfx("button")
+
+func _on_profile_saved(_patch: Dictionary) -> void:
+	_refresh_top()
+	if current_tab == 1:
+		_on_sub(current_sub)
+
+func _on_player_profile_changed() -> void:
+	_refresh_top()
+
+func _make_profile_avatar_btn(size: Vector2) -> Button:
+	var btn := Button.new()
+	btn.custom_minimum_size = size
+	btn.tooltip_text = "点击查看角色档案"
+	btn.flat = true
+	btn.focus_mode = Control.FOCUS_NONE
+	var n := StyleBoxFlat.new()
+	n.bg_color = Color(0.08, 0.07, 0.10, 0.5)
+	n.border_width_left = 1
+	n.border_width_right = 1
+	n.border_width_top = 1
+	n.border_width_bottom = 1
+	n.border_color = Color(0.45, 0.38, 0.55, 0.55)
+	n.corner_radius_top_left = 10
+	n.corner_radius_top_right = 10
+	n.corner_radius_bottom_left = 10
+	n.corner_radius_bottom_right = 10
+	btn.add_theme_stylebox_override("normal", n)
+	var h := n.duplicate()
+	h.border_color = Color(0.65, 0.52, 0.82, 0.85)
+	btn.add_theme_stylebox_override("hover", h)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(center)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = size - Vector2(12, 12)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if player_visual:
+		var tex: Texture2D = player_visual.get_avatar_texture()
+		if tex:
+			icon.texture = tex
+	center.add_child(icon)
+	btn.pressed.connect(func():
+		_open_character_profile()
+		AudioManager.play_sfx("button"))
+	return btn
+
+func _player_name(player: Dictionary) -> String:
+	return PlayerProfileUtils.display_name(player)
+
 # ==================== 样式工具 ====================
 func _style_hp_bar(bar: ProgressBar, fill_c: Color) -> void:
 	var bg := ThemeConfig.make_bar_bg()
@@ -696,6 +791,20 @@ func _make_quick_rail_btn(label_text: String, on_press: Callable) -> Button:
 			on_press.call())
 	return btn
 
+func _make_sort_chip(label_text: String, on_press: Callable) -> Button:
+	var btn := Button.new()
+	btn.text = label_text
+	btn.custom_minimum_size = Vector2(52, 26)
+	btn.add_theme_font_size_override("font_size", 9)
+	btn.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	var n := ThemeConfig.make_btn_outline(ThemeConfig.TXT_SECONDARY)
+	btn.add_theme_stylebox_override("normal", n)
+	btn.pressed.connect(func():
+		AudioManager.play_sfx("button")
+		if on_press.is_valid():
+			on_press.call())
+	return btn
+
 # ==================== 帧动画 + 对战动画系统 ====================
 func _idle_animation(delta: float) -> void:
 	if _player_atk_anim_playing:
@@ -719,16 +828,28 @@ func _get_arena_size() -> Vector2:
 	return sz
 
 # ---------- 战斗动作：多帧攻击 + 受击反馈 ----------
-func _on_combat_player_hit(enemy_id: int) -> void:
+func _update_player_atk_safety(delta: float) -> void:
+	if not _player_atk_anim_playing:
+		_player_atk_safety_timer = 0.0
+		return
+	_player_atk_safety_timer += delta
+	if _player_atk_safety_timer >= PLAYER_ATK_ANIM_MAX:
+		_player_atk_anim_playing = false
+		_player_atk_safety_timer = 0.0
+		if player_visual:
+			player_visual.restore_idle_frame()
+
+func _on_combat_player_attack(enemy_id: int) -> void:
 	_play_player_attack_on(enemy_id)
 
 func _on_combat_enemy_hit(enemy_id: int) -> void:
 	_play_enemy_attack_on(enemy_id)
 
 func _play_player_attack_on(enemy_id: int) -> void:
-	if _player_atk_anim_playing or not player_visual:
+	if not player_visual:
 		return
 	_player_atk_anim_playing = true
+	_player_atk_safety_timer = 0.0
 	var strike_cb := func():
 		_spawn_slash_arc()
 		if enemy_id >= 0 and _enemy_units.has(enemy_id):
@@ -736,7 +857,9 @@ func _play_player_attack_on(enemy_id: int) -> void:
 		elif enemy_id == -1 and _boss_unit and is_instance_valid(_boss_unit):
 			_boss_unit.play_hit()
 		_spawn_hit_sparks()
-	var finish_cb := func(): _player_atk_anim_playing = false
+	var finish_cb := func():
+		_player_atk_anim_playing = false
+		_player_atk_safety_timer = 0.0
 	player_visual.play_attack_sequence(strike_cb, finish_cb)
 
 func _play_enemy_attack_on(enemy_id: int) -> void:
@@ -931,6 +1054,10 @@ func _on_sub(sub_name: String) -> void:
 		_equip_tooltip.hide_tooltip()
 	if _equip_compare and _equip_compare.visible:
 		_equip_compare.dismiss()
+	if _equip_sell_confirm and _equip_sell_confirm.visible:
+		_equip_sell_confirm.dismiss()
+	if _character_profile and _character_profile.visible:
+		_character_profile.dismiss()
 	for btn in sub_tab_bar.get_children():
 		if btn is Button:
 			if btn.text == sub_name:
@@ -1005,7 +1132,8 @@ func _float_dmg(text: String, color: Color, is_enemy: bool, big: bool) -> void:
 
 func _refresh_top() -> void:
 	var d: Dictionary = GameManager.game_data
-	level_label.text = "Lv.%d" % d["player"]["level"]
+	var pname: String = _player_name(d["player"])
+	level_label.text = "%s  Lv.%d" % [pname, int(d["player"]["level"])]
 	gold_label.text = _fmt(int(d["player"]["gold"]))
 	gems_label.text = str(d["player"]["gems"])
 	_update_left_combat_hud()
@@ -1143,7 +1271,7 @@ func _build_character_overview(d: Dictionary) -> void:
 	var name_row := HBoxContainer.new()
 	name_row.add_theme_constant_override("separation", 12)
 	var name_l := Label.new()
-	name_l.text = "⚔ 暗影行者"
+	name_l.text = "⚔ %s" % _player_name(player)
 	name_l.add_theme_font_size_override("font_size", 16)
 	name_l.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
 	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1154,7 +1282,15 @@ func _build_character_overview(d: Dictionary) -> void:
 	lv_l.add_theme_color_override("font_color", ThemeConfig.PRIMARY)
 	name_row.add_child(lv_l)
 	main_vbox.add_child(name_row)
-	# 属性网格 (2列)
+	var subtitle := Label.new()
+	subtitle.text = PlayerProfileUtils.profile_subtitle(player)
+	subtitle.add_theme_font_size_override("font_size", 9)
+	subtitle.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	main_vbox.add_child(subtitle)
+	var avatar_row := HBoxContainer.new()
+	avatar_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	avatar_row.add_child(_make_profile_avatar_btn(Vector2(64, 64)))
+	main_vbox.add_child(avatar_row)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 16)
@@ -1188,29 +1324,169 @@ func _build_character_overview(d: Dictionary) -> void:
 func _build_equipment() -> void:
 	var d: Dictionary = GameManager.game_data
 	_build_equipment_hero_strip(d)
-	_section_header("已装备")
-	_hint_text("悬停查看属性 · 双击背包装备对比 · 双击已装备卸下")
-	var equip_grid := GridContainer.new()
-	equip_grid.columns = 3
-	equip_grid.add_theme_constant_override("h_separation", 10)
-	equip_grid.add_theme_constant_override("v_separation", 10)
-	item_list.add_child(equip_grid)
-	for sk in d["equipment"]:
-		var si: int = int(sk)
-		var item = d["equipment"][sk]
-		var cell := _make_equip_slot_cell(si, item, true)
-		equip_grid.add_child(cell)
+	_build_equipment_toolbar(d)
+	_section_header("角色装备")
+	_hint_text("点击头像编辑角色 · 绿框=可提升 · Shift+点击锁定")
+	_build_equipment_paper_doll(d)
+	var upgrade_n: int = InventoryUtils.count_upgrades(d["inventory"], d["equipment"])
+	var junk_gold: int = InventoryUtils.total_junk_gold(d["inventory"], d["equipment"])
 	_section_header("背包 (%d/%d)" % [d["inventory"].size(), int(d["inventory_max"])])
-	if d["inventory"].is_empty():
-		_hint_text("击杀怪物获取装备掉落")
+	_build_bag_capacity_bar(d)
+	var sort_row := HBoxContainer.new()
+	sort_row.add_theme_constant_override("separation", 6)
+	item_list.add_child(sort_row)
+	for mode in [InventoryUtils.SortMode.POWER_DESC, InventoryUtils.SortMode.RARITY_DESC, InventoryUtils.SortMode.LEVEL_DESC, InventoryUtils.SortMode.SLOT_ASC]:
+		var m: InventoryUtils.SortMode = mode
+		var lbl := InventoryUtils.sort_mode_label(m)
+		var active: bool = _inv_sort_mode == m
+		sort_row.add_child(_make_sort_chip(lbl if not active else "▸%s" % lbl, func():
+			_inv_sort_mode = m
+			_on_sub("装备")))
+	var filter_chip := _make_sort_chip("仅提升" if not _inv_filter_upgrades else "▸仅提升", func():
+		_inv_filter_upgrades = not _inv_filter_upgrades
+		_on_sub("装备"))
+	sort_row.add_child(filter_chip)
+	var view_chip := _make_sort_chip("列表" if not _inv_list_mode else "▸列表", func():
+		_inv_list_mode = not _inv_list_mode
+		_on_sub("装备"))
+	sort_row.add_child(view_chip)
+	if upgrade_n > 0 or junk_gold > 0:
+		var hint := Label.new()
+		var hint_parts: PackedStringArray = []
+		if upgrade_n > 0:
+			hint_parts.append("可提升 %d 件" % upgrade_n)
+		if junk_gold > 0:
+			hint_parts.append("垃圾值 %d 金" % junk_gold)
+		hint.text = " · ".join(hint_parts)
+		hint.add_theme_font_size_override("font_size", 10)
+		hint.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
+		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		sort_row.add_child(hint)
+	var bag_items: Array = d["inventory"]
+	if _inv_filter_upgrades:
+		bag_items = InventoryUtils.filter_upgrades_only(bag_items, d["equipment"])
+	if bag_items.is_empty():
+		_hint_text("暂无装备" if d["inventory"].is_empty() else "没有可提升的装备，关闭「仅提升」查看全部")
 	else:
-		var bag_grid := GridContainer.new()
-		bag_grid.columns = 4
-		bag_grid.add_theme_constant_override("h_separation", 8)
-		bag_grid.add_theme_constant_override("v_separation", 8)
-		item_list.add_child(bag_grid)
-		for item in d["inventory"]:
-			bag_grid.add_child(_make_equip_slot_cell(-1, item, false))
+		var sorted: Array = InventoryUtils.sort_inventory(bag_items, _inv_sort_mode)
+		if _inv_list_mode:
+			var bag_list := VBoxContainer.new()
+			bag_list.add_theme_constant_override("separation", 6)
+			item_list.add_child(bag_list)
+			for item in sorted:
+				bag_list.add_child(_make_equip_bag_row(item))
+		else:
+			var bag_grid := GridContainer.new()
+			bag_grid.columns = 3
+			bag_grid.add_theme_constant_override("h_separation", 8)
+			bag_grid.add_theme_constant_override("v_separation", 10)
+			item_list.add_child(bag_grid)
+			for item in sorted:
+				bag_grid.add_child(_make_equip_slot_cell(-1, item, false))
+
+func _build_equipment_toolbar(d: Dictionary) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	item_list.add_child(row)
+	var up_n: int = InventoryUtils.collect_equip_upgrades(d["inventory"], d["equipment"]).size()
+	var equip_all := _make_sort_chip("一键换装(%d)" % up_n if up_n > 0 else "一键换装", func():
+		if GameManager.equip_best_upgrades() > 0:
+			_on_sub("装备"))
+	equip_all.disabled = up_n <= 0
+	row.add_child(equip_all)
+	var junk_g: int = InventoryUtils.total_junk_gold(d["inventory"], d["equipment"])
+	var sell_junk := _make_sort_chip("出售低级(+%d)" % junk_g if junk_g > 0 else "出售低级", func():
+		if GameManager.sell_junk_items() > 0:
+			_on_sub("装备"))
+	sell_junk.disabled = junk_g <= 0
+	row.add_child(sell_junk)
+	var auto_on: bool = bool(d.get("settings", {}).get("auto_equip", true))
+	var auto_btn := _make_sort_chip("自动装备:开" if auto_on else "自动装备:关", func():
+		d["settings"]["auto_equip"] = not auto_on
+		_on_sub("装备"))
+	row.add_child(auto_btn)
+
+func _build_bag_capacity_bar(d: Dictionary) -> void:
+	var ratio: float = InventoryUtils.bag_fill_ratio(d["inventory"], int(d["inventory_max"]))
+	var wrap := PanelContainer.new()
+	var ws := StyleBoxFlat.new()
+	ws.bg_color = Color(0.06, 0.05, 0.08, 0.9)
+	ws.corner_radius_top_left = 6
+	ws.corner_radius_top_right = 6
+	ws.corner_radius_bottom_left = 6
+	ws.corner_radius_bottom_right = 6
+	ws.content_margin_left = 8.0
+	ws.content_margin_right = 8.0
+	ws.content_margin_top = 6.0
+	ws.content_margin_bottom = 6.0
+	wrap.add_theme_stylebox_override("panel", ws)
+	item_list.add_child(wrap)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	wrap.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "容量 %d%%" % int(ratio * 100.0)
+	lbl.add_theme_font_size_override("font_size", 9)
+	var cap_col := ThemeConfig.ACCENT_GREEN if ratio < 0.75 else (ThemeConfig.ACCENT_GOLD if ratio < 0.9 else ThemeConfig.ENEMY_RED)
+	lbl.add_theme_color_override("font_color", cap_col)
+	vbox.add_child(lbl)
+	var track := ColorRect.new()
+	track.custom_minimum_size = Vector2(0, 6)
+	track.color = Color(0.12, 0.11, 0.16)
+	track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(track)
+	var fill := ColorRect.new()
+	fill.color = cap_col
+	fill.custom_minimum_size = Vector2(200 * ratio, 6)
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	track.add_child(fill)
+	fill.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	fill.anchor_right = ratio
+
+func _build_equipment_paper_doll(d: Dictionary) -> void:
+	var card := _make_card(ThemeConfig.PRIMARY)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 8)
+	card.add_child(grid)
+	item_list.add_child(card)
+	for row in EQUIP_PAPER_LAYOUT:
+		for slot_i in row:
+			if int(slot_i) < 0:
+				if row == EQUIP_PAPER_LAYOUT[1]:
+					grid.add_child(_make_paper_doll_center(d))
+				else:
+					var spacer := Control.new()
+					spacer.custom_minimum_size = Vector2(76, 88)
+					grid.add_child(spacer)
+			else:
+				var si: int = int(slot_i)
+				var item = d["equipment"].get(str(si))
+				grid.add_child(_make_equip_slot_cell(si, item, true))
+
+func _make_paper_doll_center(d: Dictionary) -> VBoxContainer:
+	var cell := VBoxContainer.new()
+	cell.alignment = BoxContainer.ALIGNMENT_CENTER
+	cell.custom_minimum_size = Vector2(76, 88)
+	cell.add_child(_make_profile_avatar_btn(Vector2(72, 72)))
+	var eq_power: int = InventoryUtils.total_equipped_power(d["equipment"])
+	var score := Label.new()
+	score.text = "装评 %d" % eq_power
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	score.add_theme_font_size_override("font_size", 8)
+	score.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+	cell.add_child(score)
+	var up_slots: Array = InventoryUtils.slots_with_upgrades(d["inventory"], d["equipment"])
+	if not up_slots.is_empty():
+		var hint := Label.new()
+		hint.text = "%d 部位可换" % up_slots.size()
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.add_theme_font_size_override("font_size", 7)
+		hint.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
+		cell.add_child(hint)
+	return cell
 
 func _build_equipment_hero_strip(d: Dictionary) -> void:
 	var combat: Dictionary = d["combat"]
@@ -1219,28 +1495,33 @@ func _build_equipment_hero_strip(d: Dictionary) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	card.add_child(row)
-	var avatar := TextureRect.new()
-	avatar.custom_minimum_size = Vector2(56, 56)
-	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	if player_visual:
-		var tex: Texture2D = player_visual.get_avatar_texture()
-		if tex:
-			avatar.texture = tex
-	row.add_child(avatar)
+	row.add_child(_make_profile_avatar_btn(Vector2(56, 56)))
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.add_theme_constant_override("separation", 4)
 	var name_l := Label.new()
-	name_l.text = "Lv.%d  暗影行者" % int(player["level"])
+	name_l.text = "Lv.%d  %s" % [int(player["level"]), _player_name(player)]
 	name_l.add_theme_font_size_override("font_size", 14)
 	name_l.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
 	info.add_child(name_l)
+	var sub_l := Label.new()
+	sub_l.text = PlayerProfileUtils.profile_subtitle(player)
+	sub_l.add_theme_font_size_override("font_size", 9)
+	sub_l.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	info.add_child(sub_l)
 	var stats_l := Label.new()
-	stats_l.text = "⚔%d  🛡%d  ❤%d  ✦%d%%" % [combat["atk"], combat["def"], combat["max_hp"], combat["crit"]]
+	var eq_power: int = InventoryUtils.total_equipped_power(d["equipment"])
+	var filled: int = InventoryUtils.count_upgrades(d["inventory"], d["equipment"])
+	stats_l.text = "⚔%d  🛡%d  ❤%d  ✦%d%%  · 装评 %d" % [combat["atk"], combat["def"], combat["max_hp"], combat["crit"], eq_power]
 	stats_l.add_theme_font_size_override("font_size", 10)
 	stats_l.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 	info.add_child(stats_l)
+	if filled > 0:
+		var up_l := Label.new()
+		up_l.text = "背包有 %d 件可提升 ▲" % filled
+		up_l.add_theme_font_size_override("font_size", 10)
+		up_l.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
+		info.add_child(up_l)
 	row.add_child(info)
 	item_list.add_child(card)
 
@@ -1252,10 +1533,17 @@ func _make_equip_slot_cell(slot_i: int, item, is_equipped_row: bool) -> VBoxCont
 		if item == null:
 			slot.setup_empty(slot_i, DataManager.SLOT_NAMES[slot_i as DataManager.SlotType])
 		else:
-			slot.setup_item(item, true)
+			var inv: Array = GameManager.game_data["inventory"]
+			var eq: Dictionary = GameManager.game_data["equipment"]
+			var can_swap: bool = InventoryUtils.slot_upgrade_delta(inv, eq, slot_i) > 0
+			slot.setup_item(item, true, 999999, false, false, can_swap)
 			_wire_equip_slot(slot, true)
 	else:
-		slot.setup_item(item, false)
+		var delta: int = InventoryUtils.power_delta_vs_equipped(item, GameManager.game_data["equipment"])
+		var uid: String = str(item.get("uid", ""))
+		var is_new: bool = GameManager.is_new_item(uid)
+		var is_locked: bool = GameManager.is_item_locked(uid)
+		slot.setup_item(item, false, delta, is_new, is_locked)
 		_wire_equip_slot(slot, false)
 	cell.add_child(slot)
 	return cell
@@ -1263,12 +1551,88 @@ func _make_equip_slot_cell(slot_i: int, item, is_equipped_row: bool) -> VBoxCont
 func _wire_equip_slot(slot: EquipItemSlot, is_equipped: bool) -> void:
 	slot.slot_hovered.connect(func(it: Dictionary, pos: Vector2):
 		if _equip_tooltip:
-			_equip_tooltip.show_item(it, pos))
+			var eq: Dictionary = GameManager.game_data["equipment"]
+			var slot_key := DataManager.item_slot_key(it)
+			var equipped = eq.get(slot_key)
+			_equip_tooltip.show_item(it, pos, equipped if equipped != null else {}))
 	slot.slot_unhovered.connect(func():
 		if _equip_tooltip:
 			_equip_tooltip.hide_tooltip())
 	slot.slot_double_clicked.connect(func(it: Dictionary):
 		_on_equip_slot_double_click(it, is_equipped))
+	slot.slot_clicked.connect(func(it: Dictionary):
+		_on_equip_slot_click(it, is_equipped))
+	slot.slot_sell_requested.connect(func(it: Dictionary):
+		_on_equip_slot_sell(it, is_equipped))
+	slot.slot_lock_toggled.connect(_on_equip_lock_toggle)
+
+func _make_equip_bag_row(item: Dictionary) -> EquipBagRow:
+	var row := EquipBagRow.new()
+	var delta: int = InventoryUtils.power_delta_vs_equipped(item, GameManager.game_data["equipment"])
+	var uid: String = str(item.get("uid", ""))
+	row.setup(item, delta, GameManager.is_new_item(uid), GameManager.is_item_locked(uid))
+	row.row_hovered.connect(func(it: Dictionary, pos: Vector2):
+		if _equip_tooltip:
+			var eq: Dictionary = GameManager.game_data["equipment"]
+			var slot_key := DataManager.item_slot_key(it)
+			var equipped = eq.get(slot_key)
+			_equip_tooltip.show_item(it, pos, equipped if equipped != null else {}))
+	row.row_unhovered.connect(func():
+		if _equip_tooltip:
+			_equip_tooltip.hide_tooltip())
+	row.row_clicked.connect(func(it: Dictionary):
+		_on_equip_slot_click(it, false))
+	row.row_double_clicked.connect(func(it: Dictionary):
+		_on_equip_slot_double_click(it, false))
+	row.row_sell_requested.connect(func(it: Dictionary):
+		_on_equip_slot_sell(it, false))
+	row.row_lock_toggled.connect(_on_equip_lock_toggle)
+	return row
+
+func _on_equip_slot_click(item: Dictionary, is_equipped: bool) -> void:
+	if item.is_empty() or is_equipped:
+		return
+	GameManager._remove_new_item_marker(str(item.get("uid", "")))
+	var slot_key := DataManager.item_slot_key(item)
+	var current = GameManager.game_data["equipment"].get(slot_key)
+	if _equip_compare:
+		_equip_compare.open(item, current if current != null else {})
+	if _equip_tooltip:
+		_equip_tooltip.hide_tooltip()
+
+func _on_equip_slot_sell(item: Dictionary, is_equipped: bool) -> void:
+	if item.is_empty() or is_equipped:
+		return
+	_try_sell_item(item)
+
+func _try_sell_item(item: Dictionary) -> void:
+	item = DataManager.normalize_item(item)
+	if item.is_empty():
+		return
+	if GameManager.is_item_locked(str(item.get("uid", ""))):
+		GameManager.toast_message.emit("装备已锁定，无法出售", Color(1.0, 0.5, 0.3))
+		return
+	var rarity: int = int(item.get("rarity", 0))
+	if rarity >= int(DataManager.Rarity.RARE):
+		if _equip_sell_confirm:
+			_equip_sell_confirm.open(item)
+		return
+	GameManager.sell_item(item)
+	_on_sub("装备")
+
+func _on_sell_confirm_ok(item: Dictionary) -> void:
+	GameManager.sell_item(item)
+	_on_sub("装备")
+
+func _on_equip_lock_toggle(item: Dictionary) -> void:
+	var uid: String = str(item.get("uid", ""))
+	if uid.is_empty():
+		return
+	GameManager.toggle_item_lock(uid)
+	_on_sub("装备")
+
+func _on_equip_compare_sell(item: Dictionary) -> void:
+	_try_sell_item(item)
 
 func _on_equip_slot_double_click(item: Dictionary, is_equipped: bool) -> void:
 	if item.is_empty():
@@ -1277,12 +1641,12 @@ func _on_equip_slot_double_click(item: Dictionary, is_equipped: bool) -> void:
 		GameManager.unequip_item(int(item["slot"]))
 		_on_sub("装备")
 		return
-	var slot_key := DataManager.item_slot_key(item)
-	var current = GameManager.game_data["equipment"].get(slot_key)
-	if _equip_compare:
-		_equip_compare.open(item, current if current != null else {})
-	if _equip_tooltip:
-		_equip_tooltip.hide_tooltip()
+	var delta: int = InventoryUtils.power_delta_vs_equipped(item, GameManager.game_data["equipment"])
+	if delta > 0:
+		GameManager.equip_item(item)
+		_on_sub("装备")
+		return
+	_on_equip_slot_click(item, false)
 
 func _on_equip_compare_confirm(item: Dictionary) -> void:
 	GameManager.equip_item(item)
@@ -1369,9 +1733,161 @@ func _build_enhance() -> void:
 			item_list.add_child(_card_enhance(item))
 
 func _build_quests() -> void:
-	_section_header("主线任务")
-	for q in DataManager.QUESTS:
-		item_list.add_child(_card_quest(q))
+	var d: Dictionary = GameManager.game_data
+	var summary: Dictionary = quest_system.get_quest_summary()
+	_build_quest_summary_strip(summary)
+	_build_quest_toolbar(summary)
+	_hint_text("章节时间线 · 高亮为当前任务 · 完成后点领取")
+	var claimed: Array = d["quests"]["claimed"]
+	var active_id: String = str(summary.get("active", {}).get("id", ""))
+	for chapter_i in range(QuestUtils.CHAPTERS.size()):
+		var range: Vector2i = QuestUtils.chapter_range(chapter_i)
+		var chapter_claimed := 0
+		var chapter_total := range.y - range.x
+		for qi in range(range.x, range.y):
+			if DataManager.QUESTS[qi]["id"] in claimed:
+				chapter_claimed += 1
+		var has_visible := false
+		for qi in range(range.x, range.y):
+			if _should_show_quest(DataManager.QUESTS[qi], qi, claimed, summary):
+				has_visible = true
+				break
+		if not has_visible:
+			continue
+		_build_quest_chapter_header(chapter_i, chapter_claimed, chapter_total)
+		for qi in range(range.x, range.y):
+			var q: Dictionary = DataManager.QUESTS[qi]
+			if not _should_show_quest(q, qi, claimed, summary):
+				continue
+			var prog: int = quest_system.get_quest_progress(q)
+			var is_claimed: bool = q["id"] in claimed
+			var is_focus: bool = q["id"] == active_id and not is_claimed
+			var show_line: bool = qi < range.y - 1
+			var card: QuestCard = QuestCard.new()
+			card.setup(q, qi, prog, is_claimed, is_focus, show_line)
+			card.claim_pressed.connect(_on_quest_claim)
+			item_list.add_child(card)
+
+func _build_quest_summary_strip(summary: Dictionary) -> void:
+	var card := _make_card(ThemeConfig.SECONDARY)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+	var prog_wrap := VBoxContainer.new()
+	prog_wrap.custom_minimum_size = Vector2(72, 0)
+	prog_wrap.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(prog_wrap)
+	var ratio: float = float(summary["claimed_count"]) / float(maxi(summary["total"], 1))
+	var ring_l := Label.new()
+	ring_l.text = "%d%%" % int(ratio * 100.0)
+	ring_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ring_l.add_theme_font_size_override("font_size", 18)
+	ring_l.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+	prog_wrap.add_child(ring_l)
+	var ring_sub := Label.new()
+	ring_sub.text = "主线进度"
+	ring_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ring_sub.add_theme_font_size_override("font_size", 8)
+	ring_sub.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	prog_wrap.add_child(ring_sub)
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_theme_constant_override("separation", 4)
+	row.add_child(info)
+	var title := Label.new()
+	title.text = "深渊征途 · %d / %d" % [summary["claimed_count"], summary["total"]]
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", ThemeConfig.TXT_PRIMARY)
+	info.add_child(title)
+	var sub := Label.new()
+	var parts: PackedStringArray = []
+	if summary["claimable_count"] > 0:
+		parts.append("%d 个可领取 ▲" % summary["claimable_count"])
+	var active: Dictionary = summary.get("active", {})
+	if not active.is_empty():
+		var prog: int = quest_system.get_quest_progress(active)
+		parts.append("当前: %s (%d/%d)" % [active["name"], mini(prog, int(active["target"])), active["target"]])
+	elif summary["claimed_count"] >= summary["total"]:
+		parts.append("全部主线已完成！")
+	sub.text = " · ".join(parts) if not parts.is_empty() else "继续冒险推进任务"
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.add_theme_font_size_override("font_size", 10)
+	sub.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN if summary["claimable_count"] > 0 else ThemeConfig.TXT_SECONDARY)
+	info.add_child(sub)
+	if not active.is_empty():
+		var rewards: PackedStringArray = QuestUtils.format_rewards(active.get("reward", {}))
+		if not rewards.is_empty():
+			var reward_l := Label.new()
+			reward_l.text = "下一奖励: %s" % "  ".join(rewards)
+			reward_l.add_theme_font_size_override("font_size", 9)
+			reward_l.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
+			info.add_child(reward_l)
+	item_list.add_child(card)
+
+func _build_quest_toolbar(summary: Dictionary) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	item_list.add_child(row)
+	var claim_n: int = int(summary.get("claimable_count", 0))
+	var claim_all := _make_sort_chip("一键领取(%d)" % claim_n if claim_n > 0 else "一键领取", func():
+		if quest_system.claim_all_quests() > 0:
+			_on_sub("任务"))
+	claim_all.disabled = claim_n <= 0
+	row.add_child(claim_all)
+	for mode in ["all", "focus", "claimable"]:
+		var labels: Dictionary = {"all": "全部", "focus": "当前章", "claimable": "可领取"}
+		var lbl: String = str(labels.get(mode, mode))
+		var active: bool = _quest_filter == mode
+		row.add_child(_make_sort_chip(lbl if not active else "▸%s" % lbl, func():
+			_quest_filter = mode
+			_on_sub("任务")))
+
+func _build_quest_chapter_header(chapter_i: int, claimed_in: int, total_in: int) -> void:
+	var chapter: Dictionary = QuestUtils.CHAPTERS[chapter_i]
+	var wrap := PanelContainer.new()
+	var ws := StyleBoxFlat.new()
+	ws.bg_color = Color(0.06, 0.05, 0.09, 0.88)
+	ws.corner_radius_top_left = 8
+	ws.corner_radius_top_right = 8
+	ws.corner_radius_bottom_left = 8
+	ws.corner_radius_bottom_right = 8
+	ws.border_width_left = 3
+	ws.border_color = Color(chapter["color"].r, chapter["color"].g, chapter["color"].b, 0.85)
+	ws.content_margin_left = 12.0
+	ws.content_margin_right = 12.0
+	ws.content_margin_top = 8.0
+	ws.content_margin_bottom = 8.0
+	wrap.add_theme_stylebox_override("panel", ws)
+	item_list.add_child(wrap)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	wrap.add_child(vbox)
+	var title := Label.new()
+	title.text = "%s  (%d/%d)" % [chapter["name"], claimed_in, total_in]
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", chapter["color"].lerp(Color.WHITE, 0.15))
+	vbox.add_child(title)
+	var sub := Label.new()
+	sub.text = chapter["subtitle"]
+	sub.add_theme_font_size_override("font_size", 9)
+	sub.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+	vbox.add_child(sub)
+
+func _should_show_quest(q: Dictionary, qi: int, _claimed: Array, summary: Dictionary) -> bool:
+	match _quest_filter:
+		"claimable":
+			return quest_system.can_claim_quest(q)
+		"focus":
+			var active: Dictionary = summary.get("active", {})
+			if active.is_empty():
+				return QuestUtils.chapter_index(qi) == QuestUtils.CHAPTERS.size() - 1
+			var active_ch: int = QuestUtils.chapter_index(quest_system.quest_index_of(str(active.get("id", ""))))
+			return QuestUtils.chapter_index(qi) == active_ch
+	return true
+
+func _on_quest_claim(q: Dictionary) -> void:
+	if quest_system.claim_quest(q):
+		_on_sub("任务")
 
 func _build_daily() -> void:
 	var d: Dictionary = GameManager.game_data
@@ -1721,38 +2237,6 @@ func _card_enhance(item: Dictionary) -> PanelContainer:
 	vbox.add_child(row)
 	return card
 
-func _card_quest(q: Dictionary) -> PanelContainer:
-	var d: Dictionary = GameManager.game_data
-	var claimed: bool = q["id"] in d["quests"]["claimed"]
-	var prog: int = quest_system.get_quest_progress(q)
-	var done: bool = prog >= int(q["target"])
-	var card := _make_card(ThemeConfig.ACCENT_GREEN if claimed else (ThemeConfig.ACCENT_GOLD if done else ThemeConfig.TXT_DISABLED))
-	var hbox := HBoxContainer.new()
-	card.add_child(hbox)
-	var info := VBoxContainer.new()
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nl := Label.new()
-	nl.text = q["name"] + (" ✓" if claimed else "")
-	nl.add_theme_font_size_override("font_size", 12)
-	nl.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN if claimed else (ThemeConfig.ACCENT_GOLD if done else ThemeConfig.TXT_PRIMARY))
-	info.add_child(nl)
-	var dl := Label.new()
-	dl.text = "%s (%d/%d)" % [q["desc"], mini(prog, int(q["target"])), q["target"]]
-	dl.add_theme_font_size_override("font_size", 9)
-	dl.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-	info.add_child(dl)
-	hbox.add_child(info)
-	if done and not claimed:
-		var btn := Button.new()
-		_style_btn_primary(btn)
-		btn.text = "领取"
-		btn.add_theme_font_size_override("font_size", 10)
-		btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
-		var qr: Dictionary = q
-		btn.pressed.connect(func(): quest_system.claim_quest(qr); _on_sub("任务"))
-		hbox.add_child(btn)
-	return card
-
 func _card_daily(task: Dictionary, idx: int) -> PanelContainer:
 	var prog: int = quest_system.get_daily_progress(task)
 	var done: bool = prog >= int(task["target"])
@@ -2006,6 +2490,11 @@ func _on_damage_popup(target_id: int, amount: int, kind: String) -> void:
 	if not _dmg_popups:
 		return
 	_dmg_popups.show_at_world(_get_damage_anchor(target_id), amount, kind)
+	if kind == "skill":
+		if target_id == GameManager.BOSS_POPUP_ID and _boss_unit and is_instance_valid(_boss_unit):
+			_boss_unit.play_hit()
+		elif _enemy_units.has(target_id):
+			_enemy_units[target_id].play_hit()
 
 func _get_damage_anchor(target_id: int) -> Vector2:
 	if target_id == GameManager.PLAYER_POPUP_ID:
@@ -2065,7 +2554,7 @@ func _spawn_arc_cleave_vfx(color: Color) -> void:
 	var from_pos := Vector2(arena_size.x * 0.10, arena_size.y * 0.74)
 	var to_pos := Vector2(arena_size.x * 0.92, arena_size.y * 0.52)
 	if player_visual:
-		player_visual.play_attack_sequence()
+		player_visual.play_skill_cast_sequence()
 	AudioManager.play_sfx("crit")
 	battle_effects.spawn_aoe_wave(from_pos, to_pos, color)
 	# 横向裂风斩光带

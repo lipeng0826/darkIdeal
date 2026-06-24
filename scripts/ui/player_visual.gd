@@ -142,6 +142,7 @@ func _load_frames() -> void:
 		body_sprite.texture = _idle_textures[0]
 
 var _action_tween: Tween
+var _pending_finish: Callable = Callable()
 
 func apply_idle_motion(phase: float) -> void:
 	if _is_attacking or _is_hit_reacting:
@@ -162,9 +163,10 @@ func set_idle_frame(idx: int) -> void:
 		body_sprite.texture = _idle_textures[idx % _idle_textures.size()]
 
 func play_attack_sequence(on_strike: Callable = Callable(), on_finished: Callable = Callable()) -> void:
-	_kill_action_tween()
+	_kill_action_tween(true)
 	_is_attacking = true
 	_is_hit_reacting = false
+	_pending_finish = on_finished
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
 	_action_tween = create_tween()
@@ -190,15 +192,41 @@ func play_attack_sequence(on_strike: Callable = Callable(), on_finished: Callabl
 	if ps:
 		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.12)
 	_action_tween.tween_callback(func():
+		_finish_attack_sequence())
+
+func play_skill_cast_sequence(on_strike: Callable = Callable()) -> void:
+	## 技能专用轻量挥砍，不阻塞普攻动画锁
+	_kill_action_tween(false)
+	_is_attacking = true
+	_is_hit_reacting = false
+	var orig_mo: Vector2 = _mo
+	var ps: TextureRect = body_sprite
+	_action_tween = create_tween()
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-6, 1), 0.05)
+	_action_tween.tween_callback(func(): _set_attack_frame(ATTACK_STRIKE_IDX))
+	_action_tween.tween_callback(func():
+		motion_offset = orig_mo + Vector2(28, -2)
+		if on_strike.is_valid():
+			on_strike.call())
+	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.12).set_ease(Tween.EASE_OUT)
+	if ps:
+		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.10)
+	_action_tween.tween_callback(func():
 		_is_attacking = false
-		restore_idle_frame()
-		if on_finished.is_valid():
-			on_finished.call())
+		restore_idle_frame())
+
+func _finish_attack_sequence() -> void:
+	_is_attacking = false
+	restore_idle_frame()
+	var cb := _pending_finish
+	_pending_finish = Callable()
+	if cb.is_valid():
+		cb.call()
 
 func play_hit_reaction() -> void:
 	if _is_attacking:
 		return
-	_kill_action_tween()
+	_kill_action_tween(true)
 	_is_hit_reacting = true
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
@@ -221,10 +249,17 @@ func _set_attack_frame(idx: int) -> void:
 		return
 	body_sprite.texture = _attack_textures[idx % _attack_textures.size()]
 
-func _kill_action_tween() -> void:
+func _kill_action_tween(invoke_finish: bool = false) -> void:
 	if _action_tween and _action_tween.is_valid():
 		_action_tween.kill()
 	_action_tween = null
+	if invoke_finish and _pending_finish.is_valid():
+		var cb := _pending_finish
+		_pending_finish = Callable()
+		_is_attacking = false
+		cb.call()
+	else:
+		_is_attacking = false
 
 func play_attack_frame() -> void:
 	play_attack_sequence()

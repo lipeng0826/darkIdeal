@@ -39,7 +39,7 @@ func can_claim_quest(quest: Dictionary) -> bool:
 	return get_quest_progress(quest) >= quest["target"]
 
 ## 领取任务奖励
-func claim_quest(quest: Dictionary) -> bool:
+func claim_quest(quest: Dictionary, silent: bool = false) -> bool:
 	if not can_claim_quest(quest):
 		return false
 	var data: Dictionary = GameManager.game_data
@@ -58,8 +58,57 @@ func claim_quest(quest: Dictionary) -> bool:
 	
 	AudioManager.play_sfx("reward")
 	quest_completed.emit(quest["id"])
-	GameManager.toast_message.emit("任务完成: %s" % quest["name"], Color(1.0, 0.85, 0.0))
+	if not silent:
+		GameManager.toast_message.emit("任务完成: %s" % quest["name"], Color(1.0, 0.85, 0.0))
 	return true
+
+func get_active_quest() -> Dictionary:
+	var data: Dictionary = GameManager.game_data
+	var claimed: Array = data["quests"]["claimed"]
+	for q in DataManager.QUESTS:
+		if q["id"] not in claimed:
+			return q
+	return {}
+
+func get_quest_summary() -> Dictionary:
+	var data: Dictionary = GameManager.game_data
+	var claimed: Array = data["quests"]["claimed"]
+	var claimable: Array = []
+	var active: Dictionary = {}
+	for q in DataManager.QUESTS:
+		if q["id"] in claimed:
+			continue
+		if can_claim_quest(q):
+			claimable.append(q)
+		elif active.is_empty():
+			active = q
+	return {
+		"total": DataManager.QUESTS.size(),
+		"claimed_count": claimed.size(),
+		"claimable_count": claimable.size(),
+		"claimable": claimable,
+		"active": active,
+	}
+
+func claim_all_quests() -> int:
+	var summary: Dictionary = get_quest_summary()
+	var count := 0
+	for q in summary["claimable"]:
+		if claim_quest(q, true):
+			count += 1
+	if count > 1:
+		GameManager.toast_message.emit("已领取 %d 个任务奖励" % count, Color(1.0, 0.85, 0.0))
+	return count
+
+func quest_index_of(quest_id: String) -> int:
+	for i in range(DataManager.QUESTS.size()):
+		if DataManager.QUESTS[i]["id"] == quest_id:
+			return i
+	return -1
+
+func is_focus_quest(quest: Dictionary) -> bool:
+	var active: Dictionary = get_active_quest()
+	return not active.is_empty() and active.get("id", "") == quest.get("id", "")
 
 ## ==================== 每日任务 ====================
 

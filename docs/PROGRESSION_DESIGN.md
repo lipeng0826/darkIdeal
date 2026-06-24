@@ -124,3 +124,10 @@ ProgressionManager.exp_for_level(level)
 4. 想调合成成本 → 改 `synthesis_catalog.json` 的 `recipe`
 
 改完重启游戏即可生效，无需改 GDScript。
+
+---
+
+## 七、相关文档
+
+- [界锚残片主线玩法](HORCRUX_LOOP.md) — 魂器式探索主线，与等级段养成并行
+- [万界裂隙世界观](MULTIVERSE_LORE.md) — 十界穿越设定

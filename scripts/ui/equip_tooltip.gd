@@ -13,7 +13,7 @@ func _ready() -> void:
 	_build_nodes()
 	_apply_style()
 
-func show_item(item: Dictionary, global_pos: Vector2) -> void:
+func show_item(item: Dictionary, global_pos: Vector2, compare_equipped: Dictionary = {}) -> void:
 	item = DataManager.normalize_item(item)
 	if item.is_empty():
 		hide_tooltip()
@@ -31,20 +31,23 @@ func show_item(item: Dictionary, global_pos: Vector2) -> void:
 	lines.append("[color=#888896]%s · Lv.%d[/color]" % [ri["name"], int(item.get("level", 1))])
 	var slot_i: int = int(item.get("slot", 0))
 	lines.append("[color=#888896]%s[/color]" % DataManager.SLOT_NAMES.get(slot_i as DataManager.SlotType, ""))
-	for stat_key in item.get("stats", {}):
-		var stat_i: int = int(stat_key)
-		var stats: Dictionary = item.get("stats", {})
-		var val: int = DataManager.get_item_stat(stats, stat_i)
-		if val <= 0:
-			continue
-		var info: Dictionary = DataManager.STAT_INFO.get(stat_i, {})
-		var suffix := "%" if stat_i in [DataManager.StatType.CRIT, DataManager.StatType.CRIT_DMG, DataManager.StatType.LIFESTEAL] else ""
-		lines.append("%s %s: [color=#c8e6c9]+%d%s[/color]" % [info.get("icon", ""), info.get("short", ""), val, suffix])
+	compare_equipped = DataManager.normalize_item(compare_equipped)
+	for line in InventoryUtils.sorted_stat_lines(item, compare_equipped):
+		lines.append(line)
 	var enchant: String = str(item.get("enchant", ""))
 	if not enchant.is_empty() and EnhanceSystem.ENCHANTS.has(enchant):
 		var ed: Dictionary = EnhanceSystem.ENCHANTS[enchant]
 		lines.append("[color=#d4a5ff]附魔: %s[/color]" % ed.get("name", enchant))
-	lines.append("[color=#888896]战力 %d[/color]" % _item_power(item))
+	var power: int = _item_power(item)
+	lines.append("[color=#888896]战力 %d[/color]" % power)
+	if GameManager.is_item_locked(str(item.get("uid", ""))):
+		lines.append("[color=#e8b84a]🔒 已锁定（防误售）[/color]")
+	if not compare_equipped.is_empty():
+		var p_delta: int = power - _item_power(compare_equipped)
+		var p_col := "#7dcea0" if p_delta > 0 else ("#e57373" if p_delta < 0 else "#aaaaaa")
+		lines.append("对比已装备: [color=%s]%s%d[/color]" % [p_col, "+" if p_delta > 0 else "", p_delta])
+	lines.append("[color=#888896]出售价: %d 金币[/color]" % InventoryUtils.sell_price(item))
+	lines.append("[color=#666670]单击对比 · 双击装备 · 右键出售 · Shift+锁定[/color]")
 	_body.text = "\n".join(lines)
 	visible = true
 	var parent_ctrl: Control = get_parent() as Control
