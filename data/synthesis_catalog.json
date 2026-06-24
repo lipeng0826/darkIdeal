@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "description": "各养成系统的材料合成表 — 按等级段分档",
+
+  "categories": {
+    "gem": {
+      "name": "深渊宝石",
+      "system_id": "gem",
+      "unlock_level": 30,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "碎光宝石",
+          "level_range": [30, 39],
+          "recipe": { "abyss_crystal": 5, "soul_shard": 10 },
+          "gold": 5000,
+          "stats": { "atk": 8, "def": 4 }
+        },
+        {
+          "tier": 2,
+          "name": "幽影宝石",
+          "level_range": [40, 49],
+          "recipe": { "abyss_crystal": 10, "cursed_iron": 8 },
+          "gold": 15000,
+          "stats": { "atk": 18, "crit": 2 }
+        },
+        {
+          "tier": 3,
+          "name": "虚空宝石",
+          "level_range": [50, 59],
+          "recipe": { "void_dust": 8, "dragon_scale": 5 },
+          "gold": 40000,
+          "stats": { "atk": 35, "crit_dmg": 8 }
+        }
+      ]
+    },
+    "mount": {
+      "name": "暗影坐骑",
+      "system_id": "mount",
+      "unlock_level": 40,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "幽骨战马",
+          "level_range": [40, 49],
+          "recipe": { "demon_blood": 20, "bone_fragment": 30 },
+          "gold": 20000,
+          "stats": { "atk_pct": 3, "hp_pct": 3 }
+        },
+        {
+          "tier": 2,
+          "name": "深渊魔驹",
+          "level_range": [50, 59],
+          "recipe": { "cursed_iron": 25, "abyss_crystal": 10 },
+          "gold": 60000,
+          "stats": { "atk_pct": 6, "hp_pct": 5 }
+        },
+        {
+          "tier": 3,
+          "name": "灭世骨龙",
+          "level_range": [60, 69],
+          "recipe": { "dragon_scale": 15, "void_dust": 12 },
+          "gold": 150000,
+          "stats": { "atk_pct": 10, "hp_pct": 8, "crit": 3 }
+        }
+      ]
+    },
+    "formation": {
+      "name": "噬魂八阵",
+      "system_id": "formation",
+      "unlock_level": 50,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "生门阵眼",
+          "level_range": [50, 59],
+          "recipe": { "soul_shard": 30, "cursed_iron": 20 },
+          "gold": 50000,
+          "stats": { "def_pct": 5, "hp_regen": 5 }
+        },
+        {
+          "tier": 2,
+          "name": "死门阵眼",
+          "level_range": [60, 69],
+          "recipe": { "abyss_crystal": 15, "void_dust": 10 },
+          "gold": 120000,
+          "stats": { "atk_pct": 5, "crit": 4 }
+        }
+      ]
+    },
+    "talisman": {
+      "name": "暗影符箓",
+      "system_id": "talisman",
+      "unlock_level": 70,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "嗜血符",
+          "level_range": [70, 79],
+          "recipe": { "void_dust": 10, "demon_blood": 15 },
+          "gold": 80000,
+          "stats": { "lifesteal": 3, "atk": 20 }
+        },
+        {
+          "tier": 2,
+          "name": "护体符",
+          "level_range": [80, 89],
+          "recipe": { "dragon_scale": 12, "abyss_crystal": 8 },
+          "gold": 200000,
+          "stats": { "def": 40, "hp": 200 }
+        }
+      ]
+    },
+    "wings": {
+      "name": "堕天翼",
+      "system_id": "wings",
+      "unlock_level": 75,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "暗影之翼",
+          "level_range": [75, 84],
+          "recipe": { "dragon_scale": 20, "void_dust": 15 },
+          "gold": 250000,
+          "stats": { "atk_pct": 5, "crit_dmg": 10 }
+        },
+        {
+          "tier": 2,
+          "name": "灭世天翼",
+          "level_range": [85, 100],
+          "recipe": { "dragon_scale": 30, "void_dust": 25, "abyss_crystal": 20 },
+          "gold": 500000,
+          "stats": { "atk_pct": 12, "crit_dmg": 20, "crit": 5 }
+        }
+      ]
+    },
+    "heaven_book": {
+      "name": "深渊天书",
+      "system_id": "heaven_book",
+      "unlock_level": 90,
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "天书残卷·上",
+          "level_range": [90, 94],
+          "recipe": { "void_dust": 20, "soul_shard": 40, "abyss_crystal": 15 },
+          "gold": 300000,
+          "stats": { "atk_pct": 3, "exp_bonus_pct": 5 }
+        },
+        {
+          "tier": 2,
+          "name": "天书残卷·下",
+          "level_range": [95, 100],
+          "recipe": { "dragon_scale": 25, "void_dust": 30, "abyss_crystal": 25 },
+          "gold": 800000,
+          "stats": { "atk_pct": 8, "gold_bonus_pct": 8, "exp_bonus_pct": 8 }
+        }
+      ]
+    }
+  }
+}

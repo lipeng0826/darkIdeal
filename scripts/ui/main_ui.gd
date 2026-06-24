@@ -132,7 +132,7 @@ func _connect_all() -> void:
 	panel_back_btn.pressed.connect(_close_panel)
 	GameManager.battle_log.connect(_on_log)
 	GameManager.toast_message.connect(_show_toast)
-	GameManager.player_level_up.connect(func(_l: int): _shake_t = 0.25; _refresh_top())
+	GameManager.player_level_up.connect(func(_l: int): _shake_t = 0.25; _refresh_top(); _update_stage_info())
 	GameManager.stats_updated.connect(func(): _refresh_top())
 	GameManager.zone_changed.connect(func(_z: int): _refresh_zone(); _clear_enemy_units())
 	GameManager.show_offline_rewards.connect(_show_offline)
@@ -1012,9 +1012,9 @@ func _refresh_top() -> void:
 
 func _refresh_zone() -> void:
 	var zi: int = GameManager.game_data["zone"]["current"]
-	var z: Dictionary = DataManager.ZONES[zi]
-	zone_label.text = "%s" % z["name"]
-	zone_btn.text = "%s Lv.%d" % [z["name"], z["min_lv"]]
+	var display_name: String = LoreManager.get_zone_display_name(zi) if LoreManager.is_ready() else DataManager.ZONES[zi]["name"]
+	zone_label.text = display_name
+	zone_btn.text = "%s Lv.%d" % [display_name, DataManager.ZONES[zi]["min_lv"]]
 	# 更新区域背景
 	var bg_path: String = AssetRegistry.get_zone_battle_texture(zi)
 	var bg_tex: Texture2D = AssetRegistry.load_texture(bg_path)
@@ -1031,13 +1031,37 @@ func _update_stage_info() -> void:
 	var left_count := 0
 	if GameManager.battle_wave and GameManager.battle_wave.is_wave_active():
 		left_count = GameManager.battle_wave.get_active_enemies().size()
-	_stage_info_label.text = "章节: %s\n推荐等级: Lv.%d-%d\n%s 剩余: %d" % [
-		zone["name"],
+	_stage_info_label.text = "界域: %s\n推荐等级: Lv.%d-%d\n%s 剩余: %d%s%s" % [
+		LoreManager.get_zone_display_name(zi) if LoreManager.is_ready() else zone["name"],
 		int(zone["min_lv"]),
 		int(zone["max_lv"]),
 		wave_txt,
-		left_count
+		left_count,
+		_get_lore_hint(zi),
+		_get_progression_hint(),
 	]
+
+func _get_lore_hint(zone_index: int) -> String:
+	if not LoreManager.is_ready():
+		return ""
+	var lines: PackedStringArray = LoreManager.get_stage_info_lines(zone_index)
+	if lines.is_empty():
+		return ""
+	return "\n" + "\n".join(lines)
+
+func _get_progression_hint() -> String:
+	if not ProgressionManager.is_ready():
+		return ""
+	var lv: int = int(GameManager.game_data["player"]["level"])
+	var bracket: Dictionary = ProgressionManager.get_bracket(lv)
+	var next: Dictionary = ProgressionManager.get_next_unlock(lv)
+	var lines := ""
+	if not bracket.is_empty():
+		lines += "\n阶段: %s" % bracket.get("name", "")
+	if not next.is_empty():
+		var need: int = int(next.get("unlock_level", 0)) - lv
+		lines += "\n下阶: %s (还差%d级)" % [next.get("name", ""), need]
+	return lines
 
 func _update_left_combat_hud() -> void:
 	if not _left_hud_stats_label or not GameManager.is_loaded:

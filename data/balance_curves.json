@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "description": "等级曲线与战斗节奏 — 调平衡只改此表",
+
+  "exp_formula": {
+    "base": 55,
+    "power": 1.42,
+    "level_factor": 0.035,
+    "comment": "exp_needed = base * lv^power * (1 + lv * level_factor)"
+  },
+
+  "player_base_stats": {
+    "hp": 100,
+    "hp_per_level": 18,
+    "atk": 8,
+    "atk_per_level": 2,
+    "def": 3,
+    "def_per_level": 1,
+    "crit": 5,
+    "crit_dmg": 50,
+    "hp_regen": 1,
+    "hp_regen_per_level": 0.33
+  },
+
+  "level_brackets": [
+    {
+      "id": "bracket_1_10",
+      "min_level": 1,
+      "max_level": 10,
+      "name": "初入暗影",
+      "target_minutes_per_level": 3.5,
+      "exp_reward_mult": 1.0,
+      "gold_reward_mult": 1.0,
+      "drop_rate_equip": 0.22,
+      "drop_rate_material": 0.35,
+      "equip_pity_waves": 3,
+      "materials_unlocked": ["shadow_essence", "bone_fragment"]
+    },
+    {
+      "id": "bracket_11_20",
+      "min_level": 11,
+      "max_level": 20,
+      "name": "墓穴试炼",
+      "target_minutes_per_level": 4.0,
+      "exp_reward_mult": 1.05,
+      "gold_reward_mult": 1.08,
+      "drop_rate_equip": 0.18,
+      "drop_rate_material": 0.32,
+      "equip_pity_waves": 4,
+      "materials_unlocked": ["shadow_essence", "bone_fragment", "soul_shard"]
+    },
+    {
+      "id": "bracket_21_30",
+      "min_level": 21,
+      "max_level": 30,
+      "name": "影域征途",
+      "target_minutes_per_level": 5.0,
+      "exp_reward_mult": 1.1,
+      "gold_reward_mult": 1.12,
+      "drop_rate_equip": 0.16,
+      "drop_rate_material": 0.30,
+      "equip_pity_waves": 5,
+      "materials_unlocked": ["soul_shard", "demon_blood"]
+    },
+    {
+      "id": "bracket_31_40",
+      "min_level": 31,
+      "max_level": 40,
+      "name": "深渊裂隙",
+      "target_minutes_per_level": 6.0,
+      "exp_reward_mult": 1.15,
+      "gold_reward_mult": 1.15,
+      "drop_rate_equip": 0.14,
+      "drop_rate_material": 0.28,
+      "equip_pity_waves": 5,
+      "materials_unlocked": ["demon_blood", "cursed_iron"]
+    },
+    {
+      "id": "bracket_41_50",
+      "min_level": 41,
+      "max_level": 50,
+      "name": "王座之路",
+      "target_minutes_per_level": 7.0,
+      "exp_reward_mult": 1.2,
+      "gold_reward_mult": 1.18,
+      "drop_rate_equip": 0.12,
+      "drop_rate_material": 0.26,
+      "equip_pity_waves": 6,
+      "materials_unlocked": ["cursed_iron", "dragon_scale"]
+    },
+    {
+      "id": "bracket_51_60",
+      "min_level": 51,
+      "max_level": 60,
+      "name": "虚空前哨",
+      "target_minutes_per_level": 8.0,
+      "exp_reward_mult": 1.25,
+      "gold_reward_mult": 1.2,
+      "drop_rate_equip": 0.11,
+      "drop_rate_material": 0.24,
+      "equip_pity_waves": 6,
+      "materials_unlocked": ["dragon_scale", "abyss_crystal"]
+    },
+    {
+      "id": "bracket_61_70",
+      "min_level": 61,
+      "max_level": 70,
+      "name": "灭世序曲",
+      "target_minutes_per_level": 9.0,
+      "exp_reward_mult": 1.3,
+      "gold_reward_mult": 1.22,
+      "drop_rate_equip": 0.10,
+      "drop_rate_material": 0.22,
+      "equip_pity_waves": 7,
+      "materials_unlocked": ["abyss_crystal", "void_dust"]
+    },
+    {
+      "id": "bracket_71_80",
+      "min_level": 71,
+      "max_level": 80,
+      "name": "终焉边缘",
+      "target_minutes_per_level": 10.0,
+      "exp_reward_mult": 1.35,
+      "gold_reward_mult": 1.25,
+      "drop_rate_equip": 0.09,
+      "drop_rate_material": 0.20,
+      "equip_pity_waves": 8,
+      "materials_unlocked": ["void_dust", "dragon_scale"]
+    },
+    {
+      "id": "bracket_81_90",
+      "min_level": 81,
+      "max_level": 90,
+      "name": "永恒深渊",
+      "target_minutes_per_level": 12.0,
+      "exp_reward_mult": 1.4,
+      "gold_reward_mult": 1.28,
+      "drop_rate_equip": 0.08,
+      "drop_rate_material": 0.18,
+      "equip_pity_waves": 8,
+      "materials_unlocked": ["void_dust", "abyss_crystal", "dragon_scale"]
+    },
+    {
+      "id": "bracket_91_100",
+      "min_level": 91,
+      "max_level": 100,
+      "name": "轮回之巅",
+      "target_minutes_per_level": 15.0,
+      "exp_reward_mult": 1.5,
+      "gold_reward_mult": 1.3,
+      "drop_rate_equip": 0.07,
+      "drop_rate_material": 0.16,
+      "equip_pity_waves": 10,
+      "materials_unlocked": ["void_dust", "abyss_crystal", "dragon_scale", "soul_shard"]
+    }
+  ]
+}

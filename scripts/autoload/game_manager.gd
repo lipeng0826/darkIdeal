@@ -91,9 +91,13 @@ func _ready() -> void:
 			_apply_offline_rewards(offline)
 	
 	player_hp = game_data["combat"]["hp"]
+	ProgressionManager.sync_unlocks(game_data, int(game_data["player"]["level"]), false)
 	is_loaded = true
 	_check_daily_reset()
 	game_started.emit()
+	LoreManager.on_first_game(game_data)
+	var start_zone: int = int(game_data["zone"]["current"])
+	LoreManager.on_zone_enter(game_data, start_zone)
 	# 延迟开波，确保 main_ui 已连接 wave_started 信号
 	call_deferred("_start_next_wave")
 
@@ -258,28 +262,46 @@ func _on_wave_cleared(killed_enemies: Array) -> void:
 func _aggregate_wave_rewards(killed_enemies: Array) -> Dictionary:
 	var rewards := {"exp": 0, "gold": 0, "materials": {}, "items": []}
 	var zone_idx: int = game_data["zone"]["current"]
+	var player_lv: int = game_data["player"]["level"]
 	var gold_bonus_pct: float = _get_gold_bonus_pct()
 	var exp_bonus_pct: float = _get_exp_bonus_pct()
+	var drop_rates: Dictionary = ProgressionManager.get_drop_rates(player_lv)
+	var reward_mult: Dictionary = ProgressionManager.get_reward_multipliers(player_lv)
+	var equip_rate: float = float(drop_rates.get("equip", DROP_RATE))
+	var mat_rate: float = float(drop_rates.get("material", MATERIAL_DROP_RATE))
+	var force_equip: bool = ProgressionManager.should_force_equip_drop(game_data, player_lv)
+	var got_equip := false
 	for enemy in killed_enemies:
 		rewards["exp"] += int(enemy["exp"])
 		rewards["gold"] += int(enemy["gold"])
 		game_data["stats"]["total_kills"] += 1
 		game_data["stats"]["kills_today"] += 1
 		pet_system.on_enemy_killed()
-		pet_system.try_drop_pet(zone_idx)
-		if randf() < MATERIAL_DROP_RATE:
+		if ProgressionManager.is_system_unlocked("pet", player_lv):
+			pet_system.try_drop_pet(zone_idx)
+		if randf() < mat_rate:
 			var zone: Dictionary = DataManager.ZONES[zone_idx]
 			var mats: Array = zone["materials"]
 			var mat_id: String = mats[randi() % mats.size()]
-			if not rewards["materials"].has(mat_id):
-				rewards["materials"][mat_id] = 0
-			rewards["materials"][mat_id] += 1
-		if randf() < DROP_RATE:
+			if ProgressionManager.filter_material_drop(mat_id, player_lv):
+				if not rewards["materials"].has(mat_id):
+					rewards["materials"][mat_id] = 0
+				rewards["materials"][mat_id] += 1
+		if randf() < equip_rate:
 			var slot := randi() % 6
-			var level: int = game_data["player"]["level"]
-			var item := DataManager.generate_item(slot, level, 0)
+			var item := DataManager.generate_item(slot, player_lv, 0)
 			rewards["items"].append(item)
 			game_data["stats"]["total_equips_found"] += 1
+			got_equip = true
+	if not got_equip and force_equip and ProgressionManager.is_system_unlocked("equipment", player_lv):
+		var pity_slot := randi() % 6
+		var pity_item := DataManager.generate_item(pity_slot, player_lv, 0)
+		rewards["items"].append(pity_item)
+		game_data["stats"]["total_equips_found"] += 1
+		got_equip = true
+	ProgressionManager.record_wave_loot(game_data, got_equip)
+	rewards["gold"] = int(rewards["gold"] * float(reward_mult.get("gold", 1.0)))
+	rewards["exp"] = int(rewards["exp"] * float(reward_mult.get("exp", 1.0)))
 	if gold_bonus_pct > 0:
 		rewards["gold"] = int(rewards["gold"] * (1.0 + gold_bonus_pct / 100.0))
 	if exp_bonus_pct > 0:
@@ -452,7 +474,8 @@ func _on_boss_killed() -> void:
 	# Boss击败后解锁下一区域
 	if zone_idx == game_data["zone"]["unlocked"] and zone_idx < DataManager.ZONES.size() - 1:
 		game_data["zone"]["unlocked"] = zone_idx + 1
-		toast_message.emit("解锁新区域: %s" % DataManager.ZONES[zone_idx + 1]["name"], Color(1.0, 0.8, 0.0))
+		var next_idx: int = zone_idx + 1
+		LoreManager.on_realm_unlocked(game_data, next_idx)
 	
 	# Boss掉落高品质装备
 	var slot := randi() % 6
@@ -472,6 +495,10 @@ func _on_boss_killed() -> void:
 	is_boss_fight = false
 	is_wave_transition = true
 	rewards["is_boss"] = true
+	if LoreManager.is_ready():
+		var boss_lore: String = LoreManager.get_boss_lore(zone_idx)
+		if not boss_lore.is_empty():
+			battle_log.emit("📜 %s" % boss_lore, Color(0.9, 0.8, 0.55))
 	boss_killed.emit(current_boss["name"], rewards)
 	wave_cleared.emit(rewards)
 	AudioManager.play_sfx("reward")
@@ -511,6 +538,7 @@ func _on_level_up() -> void:
 		toast_message.emit("获得1天赋点!", Color(0.5, 1.0, 0.5))
 	
 	player_level_up.emit(lv)
+	ProgressionManager.check_level_up_unlocks(game_data, lv)
 	AudioManager.play_sfx("levelup")
 	toast_message.emit("升级! 达到 Lv.%d" % lv, Color(1.0, 0.85, 0.0))
 	_recalculate_stats()
@@ -754,6 +782,7 @@ func change_zone(zone_idx: int) -> bool:
 	is_wave_transition = false
 	_start_next_wave()
 	zone_changed.emit(zone_idx)
+	LoreManager.on_zone_enter(game_data, zone_idx)
 	return true
 
 # ==================== 每日重置 ====================

@@ -12,3 +12,5 @@ res://scripts/ui/nav_tab_button.gd
 res://scripts/autoload/save_manager.gd
 res://scripts/systems/skill_system.gd
 res://scripts/ui/battle_effects.gd
+res://scripts/autoload/data_manager.gd
+res://scripts/autoload/progression_manager.gd

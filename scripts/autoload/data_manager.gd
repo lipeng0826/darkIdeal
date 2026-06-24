@@ -287,9 +287,11 @@ const SHOP_ITEMS := [
 
 # ==================== 工具函数 ====================
 
-## 经验值公式
+## 经验值公式（数据来自 data/balance_curves.json）
 func exp_for_level(lv: int) -> int:
-	return int(80.0 * pow(lv, 1.6) * (1.0 + lv * 0.05))
+	if ProgressionManager.is_ready():
+		return ProgressionManager.exp_for_level(lv)
+	return int(55.0 * pow(lv, 1.42) * (1.0 + lv * 0.035))
 
 ## 敌人属性缩放（按区域 + 玩家等级，血量优先成长）
 func scale_enemy(base: Dictionary, player_lv: int, zone_idx: int = 0) -> Dictionary:

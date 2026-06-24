@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "title": "万界裂隙",
+  "subtitle": "穿越诸界，回收散落的纪元碎片",
+
+  "premise": {
+    "hook": "你不是在某一张地图上打怪——你是在坠入「万界裂隙」后，被裂隙之力抛入一个个破碎的世界残片。",
+    "player_role": "裂隙行者",
+    "player_desc": "能短暂锚定一个世界、击败界锚守护者、带走该界的力量结晶（材料与装备），再被裂隙甩向下一界。",
+    "threat": "若界锚不被击破，裂隙将持续吞噬该世界的一切记忆与文明。",
+    "goal": "一路穿越诸界，最终在深渊枢纽重铸「纪元天书」，封住万界裂隙。"
+  },
+
+  "dimension_types": {
+    "dark_fantasy": { "name": "暗黑奇幻", "icon": "🌑", "color": "#6b4cff" },
+    "dynasty":      { "name": "华夏朝代", "icon": "🏯", "color": "#c9a227" },
+    "anime":        { "name": "二次元",   "icon": "🌸", "color": "#ff6eb4" },
+    "magic":        { "name": "西方魔法", "icon": "🔮", "color": "#4a9eff" },
+    "scifi":        { "name": "星际科幻", "icon": "🛸", "color": "#5ce1e6" },
+    "myth":         { "name": "上古神话", "icon": "⚡", "color": "#e8d44d" },
+    "shaman":       { "name": "巫蛊秘术", "icon": "☯",  "color": "#8b4513" },
+    "pixel":        { "name": "像素次元", "icon": "👾", "color": "#39ff14" },
+    "nexus":        { "name": "万界枢纽", "icon": "🌀", "color": "#ff3366" }
+  },
+
+  "realms": [
+    {
+      "zone_index": 0,
+      "realm_id": "origin_abyss",
+      "display_name": "裂隙入口·暗影原界",
+      "era": "纪元残片·序章",
+      "dimension_type": "dark_fantasy",
+      "tagline": "一切冒险的起点，黑暗森林深处藏着第一道界门。",
+      "intro": "裂隙将你抛入一片永夜森林。这里的生物带着原界最后的怨念——击败它们，找到界锚。",
+      "travel_text": "裂隙震颤，你被甩入暗影原界的腐土林海……",
+      "boss_lore": "森林之主·枯萎者守护着原界最后的树根，它的死亡将撕开通往「汉末废墟」的裂缝。",
+      "enemy_flavor": "原界残兽",
+      "material_lore": "暗影精华 — 原界溃散时凝结的第一缕暗能。"
+    },
+    {
+      "zone_index": 1,
+      "realm_id": "han_tomb_ruins",
+      "display_name": "汉末乱世·黄巾遗冢",
+      "era": "东汉末年（架空）",
+      "dimension_type": "dynasty",
+      "tagline": "旌旗折断的战场沉入地下，亡灵仍在寻找未竟的天下。",
+      "intro": "你坠入一座被时间掩埋的汉末墓穴。黄巾残部、军阀亡魂在此永恒厮杀——仿佛三国从未落幕。",
+      "travel_text": "时空扭曲，你闻到了烽火与纸钱的味道……汉末遗冢！",
+      "boss_lore": "骸骨领主曾是乱世军阀的执念化身。击破它，裂隙会把你抛向更繁华的「大唐魔域」。",
+      "enemy_flavor": "汉末亡军",
+      "material_lore": "骨片与灵魂碎片 — 战死者的记忆残渣。"
+    },
+    {
+      "zone_index": 2,
+      "realm_id": "tang_demon_silk",
+      "display_name": "大唐魔域·丝路鬼市",
+      "era": "盛唐（架空魔改）",
+      "dimension_type": "dynasty",
+      "tagline": "胡商与妖魔共饮，丝绸之路的尽头是影之国。",
+      "intro": "繁华长安的倒影里，魔气沿丝路蔓延。影魔与梦魇伪装成胡商，在鬼市中交易活人的梦境。",
+      "travel_text": "驼铃声中夹杂着尖笑——你落入了大唐的影面世界。",
+      "boss_lore": "影之女王·暗夜玫瑰曾是丝路守护灵，被裂隙腐蚀后成为界锚。",
+      "enemy_flavor": "丝路影妖",
+      "material_lore": "灵魂碎片、恶魔之血 — 被魔化的丝路贡品。"
+    },
+    {
+      "zone_index": 3,
+      "realm_id": "sakura_parallel",
+      "display_name": "樱花异闻录·平行东瀛",
+      "era": "二次元平行世界",
+      "dimension_type": "anime",
+      "tagline": "画风突变！这是一个被裂隙「二次元化」的异世界。",
+      "intro": "规则在这里变得夸张——敌人会喊招式名，暴击特效特别浮夸。别惊讶，这只是某个番剧世界被撕裂后的残骸。",
+      "travel_text": "「异世界转生？不，是裂隙转生！」你被甩进漫天樱花与岩浆并存的次元。",
+      "boss_lore": "炎魔贝利亚尔自称「最终BOSS」，但它的血条在你面前依然合法。",
+      "enemy_flavor": "异闻录魔物",
+      "material_lore": "恶魔之血、诅咒之铁 — 从番剧设定里剥落的能量块。"
+    },
+    {
+      "zone_index": 4,
+      "realm_id": "medieval_arcane",
+      "display_name": "中世纪·奥术王庭",
+      "era": "魔法纪元",
+      "dimension_type": "magic",
+      "tagline": "骑士、龙与禁忌魔法——经典西幻世界的崩坏版本。",
+      "intro": "王座空置，堕落天使与恶魔骑士争夺法典残页。这里的魔法仍在运转，但法则已被裂隙扭曲。",
+      "travel_text": "石塔、钟声、龙息——你落在了奥术王庭的废墟上空。",
+      "boss_lore": "路西法并非真神，只是这个魔法世界「恶魔概念」的界锚化身。",
+      "enemy_flavor": "王庭堕骑士",
+      "material_lore": "诅咒之铁、龙鳞 — 王庭军械库的空间残渣。"
+    },
+    {
+      "zone_index": 5,
+      "realm_id": "nebula_war",
+      "display_name": "星云战纪·机械坟场",
+      "era": "星际战争遗迹",
+      "dimension_type": "scifi",
+      "tagline": "铁锈与星尘，一艘永恒战舰的残骸构成了整片大陆。",
+      "intro": "科幻世界的碎片。虚空巨兽实为失事的生物战舰，混沌畸变体是失控的纳米云。",
+      "travel_text": "重力紊乱！你砸在一艘坠毁星舰的甲板上……",
+      "boss_lore": "虚空之主·混沌是舰载AI的最后执念，仍在执行「消灭所有生命体」协议。",
+      "enemy_flavor": "星舰残骸兽",
+      "material_lore": "龙鳞（生物装甲）、虚空之尘 — 舰体材料在裂隙中变质。"
+    },
+    {
+      "zone_index": 6,
+      "realm_id": "nordic_ragnarok",
+      "display_name": "诸神黄昏·永夜北欧",
+      "era": "北欧神话（末日线）",
+      "dimension_type": "myth",
+      "tagline": "太阳已灭，诸神陨落，只有永恒长夜。",
+      "intro": "神话世界的终局碎片。月之骑士是旧神的残影，寒冰恶魔是约顿海姆的最后呼吸。",
+      "travel_text": "寒风割面，你踏进了诸神黄昏后的冰原……",
+      "boss_lore": "永夜君王·暗月是月亮的尸骸所化，封印着通往「殷商巫城」的裂隙。",
+      "enemy_flavor": "黄昏遗民",
+      "material_lore": "虚空之尘、深渊水晶 — 神血冷却后的结晶。"
+    },
+    {
+      "zone_index": 7,
+      "realm_id": "shang_witch_city",
+      "display_name": "殷商巫蛊·青铜鬼城",
+      "era": "商朝（架空巫术）",
+      "dimension_type": "shaman",
+      "tagline": "青铜饕餮纹在动，甲骨文里藏着诅咒。",
+      "intro": "巫觋时代的世界残片。炼狱之火实为祭祀之火，业火亡灵是未被超度的人牲。",
+      "travel_text": "钟鼎轰鸣，你坠入一座悬浮的青铜鬼城……",
+      "boss_lore": "炼狱之主·业火是巫王最后的祭品，它的熄灭将打开「像素次元」的漏洞。",
+      "enemy_flavor": "巫蛊俑兵",
+      "material_lore": "深渊水晶、恶魔之血 — 祭祀之火的余烬。"
+    },
+    {
+      "zone_index": 8,
+      "realm_id": "pixel_glitch",
+      "display_name": "像素次元·代码裂缝",
+      "era": "游戏世界（Meta）",
+      "dimension_type": "pixel",
+      "tagline": "整个世界由像素构成，连你的伤害数字都显得特别复古。",
+      "intro": "某个游戏宇宙被裂隙打碎后的「故障区域」。敌人会卡顿、穿模——但打你依然很疼。",
+      "travel_text": "画面撕裂！你掉进了满屏马赛克的数据风暴……",
+      "boss_lore": "灭世者·终焉是这段世界代码的 `while(true)` 循环，必须强制 break。",
+      "enemy_flavor": "故障精灵",
+      "material_lore": "深渊水晶、虚空之尘 — 脱落的渲染碎片。"
+    },
+    {
+      "zone_index": 9,
+      "realm_id": "abyss_nexus",
+      "display_name": "万界归一·深渊枢纽",
+      "era": "裂隙核心",
+      "dimension_type": "nexus",
+      "tagline": "所有世界的尽头，纪元天书散落于此。",
+      "intro": "诸界碎片的汇聚点。你能看到汉末的旗、樱花的瓣、星舰的骸在同一片虚空中漂浮。",
+      "travel_text": "万界在你眼前重叠——你终于站在了深渊枢纽。",
+      "boss_lore": "终焉之主·虚无是裂隙本身的意志。击败它，才能重铸纪元天书。",
+      "enemy_flavor": "万界残影",
+      "material_lore": "全部终极材料 — 诸界归一后的原初物质。"
+    }
+  ],
+
+  "rift_events": [
+    {
+      "trigger": "first_game",
+      "text": "【万界裂隙】你感到意识被撕扯……醒来时，已在暗影原界。"
+    },
+    {
+      "trigger": "realm_unlock",
+      "text": "界锚破碎！裂隙通道开启——新的世界在召唤你。"
+    },
+    {
+      "trigger": "realm_travel",
+      "text": "裂隙之力将你抛向下一个纪元残片……"
+    }
+  ]
+}

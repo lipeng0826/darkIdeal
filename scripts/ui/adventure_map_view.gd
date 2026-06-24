@@ -154,14 +154,14 @@ func _notification(what: int) -> void:
 
 func _add_map_title() -> void:
 	var title := Label.new()
-	title.text = "暗影大陆"
+	title.text = LoreManager.get_title() if LoreManager.is_ready() else "暗影大陆"
 	title.position = Vector2(16, 18)
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", Color(0.95, 0.90, 0.82))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(title)
 	var sub := Label.new()
-	sub.text = "拖动探索 · 点击区域前往"
+	sub.text = LoreManager.get_subtitle() if LoreManager.is_ready() else "拖动探索 · 点击区域前往"
 	sub.position = Vector2(18, 46)
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(0.72, 0.68, 0.78))
@@ -314,13 +314,22 @@ func _add_zone_node(zone_idx: int) -> void:
 
 	var name_lbl := Label.new()
 	var prefix := "▶ " if is_current else ("🔒 " if locked else "")
-	name_lbl.text = "%s%s" % [prefix, z["name"]]
+	var realm_name: String = LoreManager.get_zone_display_name(zone_idx) if LoreManager.is_ready() else str(z["name"])
+	name_lbl.text = "%s%s" % [prefix, realm_name]
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_lbl.custom_minimum_size = Vector2(100, 0)
 	name_lbl.add_theme_font_size_override("font_size", 9)
 	name_lbl.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD if is_current else (ThemeConfig.TXT_ON_DARK if not locked else ThemeConfig.TXT_DISABLED))
 	vbox.add_child(name_lbl)
+
+	if LoreManager.is_ready() and not locked:
+		var dim_lbl := Label.new()
+		dim_lbl.text = LoreManager.get_dimension_badge(zone_idx)
+		dim_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dim_lbl.add_theme_font_size_override("font_size", 8)
+		dim_lbl.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
+		vbox.add_child(dim_lbl)
 
 	if locked:
 		var lock_overlay := ColorRect.new()

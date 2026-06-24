@@ -166,6 +166,20 @@ func create_new_save() -> Dictionary:
 			"auto_equip": true,
 			"notifications": true,
 		},
+		
+		# 养成进度（等级段解锁、掉落保底）
+		"progression": {
+			"unlocked_systems": ["equipment"],
+			"system_tiers": {},
+			"waves_since_equip": 0,
+			"current_bracket": "bracket_1_10",
+		},
+		
+		# 万界裂隙叙事进度
+		"lore": {
+			"visited_realms": [],
+			"seen_first_game": false,
+		},
 	}
 
 ## 保存游戏
@@ -209,7 +223,26 @@ func _normalize_loaded_data(data: Dictionary) -> Dictionary:
 		inv[i] = DataManager.normalize_item(inv[i])
 	data["inventory"] = inv
 	_ensure_starter_skills(data)
+	ProgressionManager.ensure_progression_data(data)
+	var lv: int = int(data.get("player", {}).get("level", 1))
+	ProgressionManager.sync_unlocks(data, lv, false)
+	LoreManager.ensure_lore_save(data)
+	_migrate_lore_for_existing_save(data)
 	return data
+
+func _migrate_lore_for_existing_save(data: Dictionary) -> void:
+	var lore: Dictionary = data["lore"]
+	if lore.get("_migrated", false):
+		return
+	# 老存档：跳过开场叙事，已解锁界域标记为已访问
+	lore["seen_first_game"] = true
+	var unl: int = int(data.get("zone", {}).get("unlocked", 0))
+	var visited: Array = lore.get("visited_realms", [])
+	for i in range(unl + 1):
+		if i not in visited:
+			visited.append(i)
+	lore["visited_realms"] = visited
+	lore["_migrated"] = true
 
 func _ensure_starter_skills(data: Dictionary) -> void:
 	if not data.has("skills"):

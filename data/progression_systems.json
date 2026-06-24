@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "description": "等级段解锁的养成系统 — 对标御龙在天/QQ三国的分段养成",
+
+  "systems": [
+    {
+      "id": "equipment",
+      "name": "装备",
+      "ref_game": "装备",
+      "unlock_level": 1,
+      "tab": "character",
+      "desc": "击杀掉落六部位装备，战力核心",
+      "status": "implemented",
+      "materials": []
+    },
+    {
+      "id": "craft",
+      "name": "暗影锻造",
+      "ref_game": "装备合成",
+      "unlock_level": 10,
+      "tab": "workshop",
+      "desc": "消耗区域材料锻造指定部位装备",
+      "status": "implemented",
+      "materials": ["shadow_essence", "bone_fragment"]
+    },
+    {
+      "id": "skill",
+      "name": "技能奥术",
+      "ref_game": "技能",
+      "unlock_level": 15,
+      "tab": "character",
+      "desc": "装备4个主动技能，战斗中自动释放",
+      "status": "implemented",
+      "materials": ["soul_shard"]
+    },
+    {
+      "id": "talent",
+      "name": "天赋脉络",
+      "ref_game": "天赋/心法",
+      "unlock_level": 20,
+      "tab": "character",
+      "desc": "每5级获得天赋点，三线天赋树",
+      "status": "implemented",
+      "materials": []
+    },
+    {
+      "id": "pet",
+      "name": "灵契宠物",
+      "ref_game": "宠物",
+      "unlock_level": 20,
+      "tab": "character",
+      "desc": "区域掉落宠物，提供被动与主动伤害",
+      "status": "implemented",
+      "materials": ["shadow_essence", "soul_shard"]
+    },
+    {
+      "id": "enhance",
+      "name": "装备强化",
+      "ref_game": "强化",
+      "unlock_level": 25,
+      "tab": "workshop",
+      "desc": "+1~+30强化，消耗金币与材料",
+      "status": "implemented",
+      "materials": ["shadow_essence", "cursed_iron", "demon_blood"]
+    },
+    {
+      "id": "gem",
+      "name": "深渊宝石",
+      "ref_game": "宝石",
+      "unlock_level": 30,
+      "tab": "workshop",
+      "desc": "镶嵌宝石到装备孔，提供额外属性",
+      "status": "partial",
+      "materials": ["abyss_crystal"]
+    },
+    {
+      "id": "enchant",
+      "name": "诅咒附魔",
+      "ref_game": "附魔/精炼",
+      "unlock_level": 35,
+      "tab": "workshop",
+      "desc": "为装备附加元素附魔效果",
+      "status": "implemented",
+      "materials": ["void_dust", "demon_blood"]
+    },
+    {
+      "id": "mount",
+      "name": "暗影坐骑",
+      "ref_game": "坐骑",
+      "unlock_level": 40,
+      "tab": "character",
+      "desc": "提升移速与全属性百分比加成",
+      "status": "planned",
+      "materials": ["demon_blood", "cursed_iron"]
+    },
+    {
+      "id": "tower",
+      "name": "深渊塔",
+      "ref_game": "副本塔",
+      "unlock_level": 45,
+      "tab": "adventure",
+      "desc": "爬塔挑战，每10层保底奖励",
+      "status": "implemented",
+      "materials": []
+    },
+    {
+      "id": "formation",
+      "name": "噬魂八阵",
+      "ref_game": "八阵图",
+      "unlock_level": 50,
+      "tab": "character",
+      "desc": "阵眼镶嵌，全队属性加成",
+      "status": "planned",
+      "materials": ["soul_shard", "cursed_iron", "abyss_crystal"]
+    },
+    {
+      "id": "rebirth",
+      "name": "轮回转生",
+      "ref_game": "转生/飞升",
+      "unlock_level": 50,
+      "tab": "more",
+      "desc": "重置等级获得永久加成",
+      "status": "implemented",
+      "materials": []
+    },
+    {
+      "id": "spirit_beast",
+      "name": "深渊灵兽",
+      "ref_game": "灵兽",
+      "unlock_level": 55,
+      "tab": "character",
+      "desc": "独立于宠物的第二养成线，提供团队Buff",
+      "status": "planned",
+      "materials": ["dragon_scale", "abyss_crystal"]
+    },
+    {
+      "id": "soul",
+      "name": "虚眼神识",
+      "ref_game": "元神",
+      "unlock_level": 60,
+      "tab": "character",
+      "desc": "元神阶位提升，解锁百分比全属性",
+      "status": "planned",
+      "materials": ["abyss_crystal", "void_dust"]
+    },
+    {
+      "id": "soul_fragment",
+      "name": "灵魄结晶",
+      "ref_game": "灵魄",
+      "unlock_level": 65,
+      "tab": "character",
+      "desc": "灵魄槽位，提供暴击/吸血专项加成",
+      "status": "planned",
+      "materials": ["void_dust", "soul_shard"]
+    },
+    {
+      "id": "talisman",
+      "name": "暗影符箓",
+      "ref_game": "符咒",
+      "unlock_level": 70,
+      "tab": "workshop",
+      "desc": "符箓合成，短时或永久被动效果",
+      "status": "planned",
+      "materials": ["void_dust", "demon_blood", "dragon_scale"]
+    },
+    {
+      "id": "wings",
+      "name": "堕天翼",
+      "ref_game": "翅膀",
+      "unlock_level": 75,
+      "tab": "character",
+      "desc": "翅膀阶位，外观+属性双成长",
+      "status": "planned",
+      "materials": ["dragon_scale", "void_dust"]
+    },
+    {
+      "id": "ultimate",
+      "name": "灭世奥义",
+      "ref_game": "奥义/必杀",
+      "unlock_level": 80,
+      "tab": "character",
+      "desc": "终极技能槽，Boss战全额伤害",
+      "status": "planned",
+      "materials": ["abyss_crystal", "dragon_scale", "void_dust"]
+    },
+    {
+      "id": "heaven_book",
+      "name": "深渊天书",
+      "ref_game": "天书",
+      "unlock_level": 90,
+      "tab": "more",
+      "desc": "天书残页收集，套装式永久加成",
+      "status": "planned",
+      "materials": ["void_dust", "abyss_crystal", "dragon_scale", "soul_shard"]
+    }
+  ],
+
+  "bracket_milestones": [
+    { "level": 10, "title": "踏入墓穴", "unlock_hint": "解锁暗影锻造" },
+    { "level": 15, "title": "奥术觉醒", "unlock_hint": "解锁技能奥术" },
+    { "level": 20, "title": "灵契缔结", "unlock_hint": "解锁宠物与天赋" },
+    { "level": 30, "title": "宝石之门", "unlock_hint": "解锁深渊宝石" },
+    { "level": 40, "title": "暗影骑乘", "unlock_hint": "解锁坐骑" },
+    { "level": 50, "title": "阵眼初开", "unlock_hint": "解锁八阵图与转生" },
+    { "level": 60, "title": "神识凝聚", "unlock_hint": "解锁元神" },
+    { "level": 70, "title": "符道入门", "unlock_hint": "解锁符箓" },
+    { "level": 80, "title": "奥义觉醒", "unlock_hint": "解锁灭世奥义" },
+    { "level": 90, "title": "天书残卷", "unlock_hint": "解锁深渊天书" },
+    { "level": 100, "title": "轮回之巅", "unlock_hint": "开启终极挑战" }
+  ]
+}
