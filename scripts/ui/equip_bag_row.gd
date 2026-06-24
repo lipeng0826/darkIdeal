@@ -57,20 +57,20 @@ func setup(p_item: Dictionary, power_delta: int, is_new: bool, is_locked: bool) 
 	_lock_l.visible = is_locked
 	var glow := power_delta > 0
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.08, 0.07, 0.10, 0.94)
-	s.corner_radius_top_left = 8
-	s.corner_radius_top_right = 8
-	s.corner_radius_bottom_left = 8
-	s.corner_radius_bottom_right = 8
-	s.border_width_left = 2
-	s.border_width_right = 2
-	s.border_width_top = 2
-	s.border_width_bottom = 2
-	s.border_color = Color(ri["color"].r, ri["color"].g, ri["color"].b, 0.85 if glow else 0.45)
+	s.bg_color = Color(0.09, 0.08, 0.11, 0.96)
+	s.corner_radius_top_left = 6
+	s.corner_radius_top_right = 6
+	s.corner_radius_bottom_left = 6
+	s.corner_radius_bottom_right = 6
+	s.border_width_left = 1
+	s.border_width_right = 1
+	s.border_width_top = 1
+	s.border_width_bottom = 1
+	s.border_color = Color(0.26, 0.24, 0.30, 0.88)
 	if glow:
-		s.shadow_color = Color(0.3, 0.9, 0.4, 0.2)
-		s.shadow_size = 3
+		s.border_color = Color(ri["color"].r, ri["color"].g, ri["color"].b, 0.38)
 	add_theme_stylebox_override("panel", s)
+	_rarity_bar.color = Color(ri["color"].r, ri["color"].g, ri["color"].b, 0.75 if glow else 0.55)
 
 func _gui_input(event: InputEvent) -> void:
 	if item.is_empty():

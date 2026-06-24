@@ -49,7 +49,7 @@ func setup_empty(slot_i: int, slot_name: String) -> void:
 	if _upgrade_hint:
 		_upgrade_hint.visible = false
 	if _rarity_strip:
-		_rarity_strip.color = Color(0.35, 0.34, 0.38, 0.5)
+		_rarity_strip.color = Color(0.40, 0.38, 0.44, 0.55)
 	var path: String = AssetRegistry.get_slot_fallback_icon(slot_i)
 	_set_icon(path, 0.35)
 	_apply_border(ThemeConfig.TXT_DISABLED, false)
@@ -76,7 +76,7 @@ func setup_item(
 	var is_upgrade: bool = power_delta > 0 and power_delta != 999999
 	_apply_border(ri["color"], is_upgrade)
 	if _rarity_strip:
-		_rarity_strip.color = Color(ri["color"].r, ri["color"].g, ri["color"].b, 0.95)
+		_rarity_strip.color = Color(ri["color"].r, ri["color"].g, ri["color"].b, 0.70 if not is_upgrade else 0.90)
 	var short_name: String = str(p_item.get("name", ""))
 	if short_name.length() > 7:
 		short_name = short_name.substr(0, 6) + "…"
@@ -120,21 +120,22 @@ func _set_icon(path: String, alpha: float) -> void:
 
 func _apply_border(color: Color, glow: bool) -> void:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.08, 0.07, 0.10, 0.94)
-	var bw := 3 if glow else 2
-	s.border_width_left = bw
-	s.border_width_right = bw
-	s.border_width_top = bw
-	s.border_width_bottom = bw
-	s.border_color = Color(color.r, color.g, color.b, 0.95 if glow else 0.75)
-	s.corner_radius_top_left = 8
-	s.corner_radius_top_right = 8
-	s.corner_radius_bottom_left = 8
-	s.corner_radius_bottom_right = 8
+	s.bg_color = Color(0.09, 0.08, 0.11, 0.96)
+	s.border_width_left = 1
+	s.border_width_right = 1
+	s.border_width_top = 1
+	s.border_width_bottom = 1
+	s.border_color = Color(0.26, 0.24, 0.30, 0.88)
+	s.corner_radius_top_left = 6
+	s.corner_radius_top_right = 6
+	s.corner_radius_bottom_left = 6
+	s.corner_radius_bottom_right = 6
 	if glow:
-		s.shadow_color = Color(color.r, color.g, color.b, 0.35)
-		s.shadow_size = 4
+		s.border_color = Color(color.r, color.g, color.b, 0.42)
 	add_theme_stylebox_override("panel", s)
+	if _rarity_strip:
+		_rarity_strip.offset_right = 3
+		_rarity_strip.color = Color(color.r, color.g, color.b, 0.70 if not glow else 0.90)
 
 func _gui_input(event: InputEvent) -> void:
 	if is_empty and item.is_empty():
@@ -176,7 +177,7 @@ func _ensure_nodes() -> void:
 	_rarity_strip.anchor_bottom = 1.0
 	_rarity_strip.offset_left = 0
 	_rarity_strip.offset_top = 4
-	_rarity_strip.offset_right = 4
+	_rarity_strip.offset_right = 3
 	_rarity_strip.offset_bottom = -4
 	_rarity_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_rarity_strip)

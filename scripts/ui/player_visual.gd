@@ -6,8 +6,9 @@ enum MotionState { IDLE, RUN, ATTACK, HIT }
 
 var body_sprite: TextureRect
 
-var _idle_textures: Array = []
-var _attack_textures: Array = []
+var _idle_textures: Array[Texture2D] = []
+var _run_textures: Array[Texture2D] = []
+var _attack_textures: Array[Texture2D] = []
 var _is_attacking := false
 var _is_hit_reacting := false
 var _motion_state := MotionState.IDLE
@@ -17,6 +18,7 @@ var _sprite_h := 0.0
 var _anchor_x := 0.0
 var _mo := Vector2.ZERO
 var _motion_scale := Vector2.ONE
+var _run_frame_idx := -1
 
 var motion_offset: Vector2:
 	get:
@@ -32,18 +34,9 @@ var motion_scale: Vector2:
 		_motion_scale = value
 		_apply_sprite_transform()
 
-const IDLE_FRAMES := [
-	"res://assets/sprites/hero_iterations/hero_iter_08.png",
-	"res://assets/sprites/hero_iterations/hero_iter_08.png",
-]
-const ATTACK_FRAMES := [
-	"res://assets/sprites/hero_iterations/hero_iter_08.png",
-	"res://assets/sprites/hero_iterations/hero_iter_07_attack.png",
-	"res://assets/sprites/hero_iterations/hero_iter_07_attack.png",
-	"res://assets/sprites/hero_iterations/hero_iter_10_attack.png",
-]
-const ATTACK_FRAME_DUR := [0.08, 0.09, 0.11, 0.09]
-const ATTACK_STRIKE_IDX := 2
+# 8 帧连贯挥砍：前摇 → 出刀 → 收招
+const ATTACK_FRAME_DUR := [0.045, 0.045, 0.055, 0.050, 0.055, 0.045, 0.040, 0.040]
+const ATTACK_STRIKE_IDX := 4
 const FALLBACK_IDLE := "res://assets/sprites/player_idle_1.png"
 const FALLBACK_ATTACK := "res://assets/sprites/player_attack_1.png"
 const CHROMA_SHADER := "res://shaders/chroma_key.gdshader"
@@ -125,31 +118,26 @@ func _get_arena_height() -> float:
 	return size.y
 
 func _load_frames() -> void:
-	_idle_textures.clear()
-	_attack_textures.clear()
-	for p in IDLE_FRAMES:
-		var t: Texture2D = AssetRegistry.load_texture(p)
-		if t:
-			_idle_textures.append(t)
+	_idle_textures = HeroSpriteFrames.load_strip(HeroSpriteFrames.IDLE_SHEET, HeroSpriteFrames.IDLE_FRAME_COUNT)
+	_run_textures = HeroSpriteFrames.load_strip(HeroSpriteFrames.RUN_SHEET, HeroSpriteFrames.RUN_FRAME_COUNT)
+	_attack_textures = HeroSpriteFrames.load_strip(HeroSpriteFrames.ATTACK_SHEET, HeroSpriteFrames.ATTACK_FRAME_COUNT)
 	if _idle_textures.is_empty():
 		var fb: Texture2D = load(FALLBACK_IDLE)
 		if fb:
 			_idle_textures.append(fb)
-	for p in ATTACK_FRAMES:
-		var t2: Texture2D = AssetRegistry.load_texture(p)
-		if t2:
-			_attack_textures.append(t2)
 	if _attack_textures.is_empty():
 		var fb2: Texture2D = load(FALLBACK_ATTACK)
 		if fb2:
 			_attack_textures.append(fb2)
 	if _idle_textures.size() > 0 and body_sprite:
-		body_sprite.texture = _idle_textures[0]
+		_set_display_texture(_idle_textures[0], false)
 
 var _action_tween: Tween
 var _pending_finish: Callable = Callable()
 
 func set_motion_state(state: MotionState) -> void:
+	if state != MotionState.RUN:
+		_run_frame_idx = -1
 	_motion_state = state
 
 func apply_idle_motion(phase: float) -> void:
@@ -166,22 +154,28 @@ func apply_run_motion(phase: float) -> void:
 	if _is_attacking or _is_hit_reacting:
 		return
 	var stride: float = sin(phase * 2.4)
-	var bob: float = absf(sin(phase * 2.4)) * -5.0
-	var lean: float = 0.04 + sin(phase * 1.2) * 0.012
-	motion_offset = Vector2(stride * 3.0, bob)
-	motion_scale = Vector2(1.0 + lean * 0.5, 1.0 - lean * 0.35)
+	var bob: float = absf(sin(phase * 2.4)) * -4.0
+	var lean: float = 0.03 + sin(phase * 1.2) * 0.010
+	motion_offset = Vector2(stride * 2.0, bob)
+	motion_scale = Vector2(1.0 + lean * 0.45, 1.0 - lean * 0.30)
 	if body_sprite:
 		body_sprite.rotation = -lean
+	if _run_textures.size() > 0:
+		var fi: int = int(phase * 1.55) % _run_textures.size()
+		if fi != _run_frame_idx:
+			_run_frame_idx = fi
+			_set_display_texture(_run_textures[fi], true)
 
 func reset_motion() -> void:
 	motion_offset = Vector2.ZERO
 	motion_scale = Vector2.ONE
+	_run_frame_idx = -1
 
 func set_idle_frame(idx: int) -> void:
 	if _is_attacking or _is_hit_reacting:
 		return
-	if _idle_textures.size() > 0 and body_sprite:
-		body_sprite.texture = _idle_textures[idx % _idle_textures.size()]
+	if _idle_textures.size() > 0:
+		_set_display_texture(_idle_textures[idx % _idle_textures.size()], true)
 
 func play_attack_sequence(on_strike: Callable = Callable(), on_finished: Callable = Callable()) -> void:
 	_kill_action_tween(true)
@@ -191,48 +185,54 @@ func play_attack_sequence(on_strike: Callable = Callable(), on_finished: Callabl
 	_pending_finish = on_finished
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
+	var frame_count: int = mini(_attack_textures.size(), ATTACK_FRAME_DUR.size())
+	if frame_count <= 0:
+		if on_strike.is_valid():
+			on_strike.call()
+		_finish_attack_sequence()
+		return
 	_action_tween = create_tween()
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-8, 1), 0.06)
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-6, 1), 0.05)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", -0.08, 0.06)
-	for i in range(ATTACK_FRAME_DUR.size()):
+		_action_tween.parallel().tween_property(ps, "rotation", -0.06, 0.05)
+	for i in range(frame_count):
 		var frame_i: int = i
 		_action_tween.tween_callback(func():
 			_set_attack_frame(frame_i))
 		var dur: float = ATTACK_FRAME_DUR[frame_i]
 		if frame_i == ATTACK_STRIKE_IDX:
 			_action_tween.tween_callback(func():
-				motion_offset = orig_mo + Vector2(52, -4)
+				motion_offset = orig_mo + Vector2(44, -3)
 				if on_strike.is_valid():
 					on_strike.call())
-			_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(46, -3), dur).set_ease(Tween.EASE_OUT)
+			_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(38, -2), dur).set_ease(Tween.EASE_OUT)
 			if ps:
-				_action_tween.parallel().tween_property(ps, "rotation", 0.12, dur)
+				_action_tween.parallel().tween_property(ps, "rotation", 0.10, dur)
 		else:
 			_action_tween.tween_interval(dur)
-	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.10).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.10)
+		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.08)
 	_action_tween.tween_callback(func():
 		_finish_attack_sequence())
 
 func play_skill_cast_sequence(on_strike: Callable = Callable()) -> void:
-	## 技能专用轻量挥砍，不阻塞普攻动画锁
 	_kill_action_tween(false)
 	_is_attacking = true
 	_is_hit_reacting = false
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
+	var strike_idx: int = mini(ATTACK_STRIKE_IDX, _attack_textures.size() - 1)
 	_action_tween = create_tween()
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-6, 1), 0.05)
-	_action_tween.tween_callback(func(): _set_attack_frame(ATTACK_STRIKE_IDX))
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-5, 1), 0.04)
+	_action_tween.tween_callback(func(): _set_attack_frame(strike_idx))
 	_action_tween.tween_callback(func():
-		motion_offset = orig_mo + Vector2(28, -2)
+		motion_offset = orig_mo + Vector2(24, -2)
 		if on_strike.is_valid():
 			on_strike.call())
-	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.12).set_ease(Tween.EASE_OUT)
+	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.10).set_ease(Tween.EASE_OUT)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.10)
+		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.08)
 	_action_tween.tween_callback(func():
 		_is_attacking = false
 		restore_idle_frame())
@@ -253,23 +253,36 @@ func play_hit_reaction() -> void:
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
 	_action_tween = create_tween()
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-16, -5), 0.05)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(0.90, 1.08), 0.05)
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-14, -4), 0.05)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(0.92, 1.06), 0.05)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "modulate", Color(1.45, 1.2, 1.15), 0.04)
-		_action_tween.parallel().tween_property(ps, "rotation", -0.10, 0.05)
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-8, 3), 0.08)
-	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.12).set_ease(Tween.EASE_OUT)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2.ONE, 0.12)
+		_action_tween.parallel().tween_property(ps, "modulate", Color(1.35, 1.15, 1.10), 0.04)
+		_action_tween.parallel().tween_property(ps, "rotation", -0.08, 0.05)
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-6, 2), 0.08)
+	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.10).set_ease(Tween.EASE_OUT)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2.ONE, 0.10)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "modulate", Color.WHITE, 0.12)
-		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.12)
+		_action_tween.parallel().tween_property(ps, "modulate", Color.WHITE, 0.10)
+		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.10)
 	_action_tween.tween_callback(func(): _is_hit_reacting = false)
 
 func _set_attack_frame(idx: int) -> void:
-	if not body_sprite or _attack_textures.is_empty():
+	if _attack_textures.is_empty():
 		return
-	body_sprite.texture = _attack_textures[idx % _attack_textures.size()]
+	_set_display_texture(_attack_textures[idx % _attack_textures.size()], true)
+
+func _set_display_texture(tex: Texture2D, refit: bool) -> void:
+	if not body_sprite or tex == null:
+		return
+	if body_sprite.texture == tex:
+		return
+	var needs_refit := refit and (
+		body_sprite.texture == null
+		or body_sprite.texture.get_size() != tex.get_size()
+	)
+	body_sprite.texture = tex
+	if needs_refit:
+		call_deferred("_fit_hero")
 
 func _kill_action_tween(invoke_finish: bool = false) -> void:
 	if _action_tween and _action_tween.is_valid():
@@ -288,8 +301,9 @@ func play_attack_frame() -> void:
 
 func restore_idle_frame() -> void:
 	_is_attacking = false
-	if _idle_textures.size() > 0 and body_sprite:
-		body_sprite.texture = _idle_textures[0]
+	_run_frame_idx = -1
+	if _idle_textures.size() > 0:
+		_set_display_texture(_idle_textures[0], true)
 
 func get_body_sprite() -> TextureRect:
 	return body_sprite
@@ -348,7 +362,9 @@ func _ensure_nodes() -> void:
 		b.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		b.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		add_child(b)
 		body_sprite = b
 	else:
 		body_sprite = $BodySprite
+		body_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

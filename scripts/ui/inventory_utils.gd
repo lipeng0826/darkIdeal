@@ -248,3 +248,48 @@ static func sort_mode_label(mode: SortMode) -> String:
 		SortMode.LEVEL_DESC: return "等级↓"
 		SortMode.SLOT_ASC: return "部位"
 	return "排序"
+
+enum BagCategory { ALL, EQUIP, MATERIAL }
+
+static func bag_category_label(cat: BagCategory) -> String:
+	match cat:
+		BagCategory.ALL: return "全部"
+		BagCategory.EQUIP: return "装备"
+		BagCategory.MATERIAL: return "材料"
+	return "全部"
+
+static func material_icon(mat_id: String) -> String:
+	match mat_id:
+		"shadow_essence": return "◆"
+		"bone_fragment": return "▣"
+		"demon_blood": return "🩸"
+		"soul_shard": return "✧"
+		"abyss_crystal": return "◇"
+		"cursed_iron": return "■"
+		"dragon_scale": return "⬡"
+		"void_dust": return "◎"
+		_: return "●"
+
+static func collect_material_entries(materials: Dictionary) -> Array:
+	var entries: Array = []
+	for mat_id in materials:
+		var amount: int = int(materials[mat_id])
+		if amount <= 0:
+			continue
+		if not DataManager.MATERIALS.has(mat_id):
+			continue
+		var info: Dictionary = DataManager.MATERIALS[mat_id]
+		entries.append({
+			"id": mat_id,
+			"name": info["name"],
+			"count": amount,
+			"color": info["color"],
+		})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["count"]) != int(b["count"]):
+			return int(a["count"]) > int(b["count"])
+		return str(a["name"]) < str(b["name"]))
+	return entries
+
+static func material_type_count(materials: Dictionary) -> int:
+	return collect_material_entries(materials).size()

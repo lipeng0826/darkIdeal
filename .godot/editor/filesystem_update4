@@ -1,0 +1,17 @@
+res://scripts/autoload/game_manager.gd
+res://scripts/autoload/save_manager.gd
+res://scripts/ui/equip_compare_dialog.gd
+res://scripts/ui/equip_item_slot.gd
+res://scripts/ui/equip_tooltip.gd
+res://scripts/ui/main_ui.gd
+res://scripts/ui/player_visual.gd
+res://scripts/systems/quest_system.gd
+res://scripts/ui/equip_bag_row.gd
+res://scripts/ui/quest_card.gd
+res://scripts/ui/character_profile_dialog.gd
+res://scripts/ui/asset_registry.gd
+res://scripts/ui/battle_skill_bar.gd
+res://scripts/ui/battle_enemy_unit.gd
+res://scripts/ui/battle_layout.gd
+res://scripts/ui/battle_side_scroll.gd
+res://scripts/ui/inventory_utils.gd

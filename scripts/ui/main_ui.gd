@@ -89,6 +89,7 @@ var _quick_rail_row: HBoxContainer
 var _inv_sort_mode: InventoryUtils.SortMode = InventoryUtils.SortMode.POWER_DESC
 var _inv_filter_upgrades := false
 var _inv_list_mode := false
+var _inv_bag_category: InventoryUtils.BagCategory = InventoryUtils.BagCategory.EQUIP
 var _quest_filter := "all"
 var _side_scroll: BattleSideScrollState
 var _parallax_bg: BattleParallaxBg
@@ -122,7 +123,7 @@ const NAV_TABS: Array = [
 var _nav_buttons: Array[NavTabButton] = []
 var _frame_timer := 0.0
 var _current_frame := 0
-const FRAME_DURATION := 0.4  # 每帧0.4秒
+const FRAME_DURATION := 0.14  # 待机精灵表帧间隔
 
 # ==================== 初始化 ====================
 func _ready() -> void:
@@ -1526,58 +1527,114 @@ func _build_equipment() -> void:
 	_build_equipment_paper_doll(d)
 	var upgrade_n: int = InventoryUtils.count_upgrades(d["inventory"], d["equipment"])
 	var junk_gold: int = InventoryUtils.total_junk_gold(d["inventory"], d["equipment"])
-	_section_header("背包 (%d/%d)" % [d["inventory"].size(), int(d["inventory_max"])])
-	_build_bag_capacity_bar(d)
+	var mat_count: int = InventoryUtils.material_type_count(d["materials"])
+	var header: String = "背包"
+	match _inv_bag_category:
+		InventoryUtils.BagCategory.EQUIP:
+			header = "背包 · 装备 (%d/%d)" % [d["inventory"].size(), int(d["inventory_max"])]
+		InventoryUtils.BagCategory.MATERIAL:
+			header = "背包 · 材料 (%d种)" % mat_count
+		_:
+			header = "背包 · 装备 %d/%d · 材料 %d种" % [d["inventory"].size(), int(d["inventory_max"]), mat_count]
+	_section_header(header)
+	if _inv_bag_category != InventoryUtils.BagCategory.MATERIAL:
+		_build_bag_capacity_bar(d)
+	_build_bag_category_tabs()
 	var sort_row := HBoxContainer.new()
 	sort_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sort_row.add_theme_constant_override("separation", 6)
-	item_list.add_child(sort_row)
-	for mode in [InventoryUtils.SortMode.POWER_DESC, InventoryUtils.SortMode.RARITY_DESC, InventoryUtils.SortMode.LEVEL_DESC, InventoryUtils.SortMode.SLOT_ASC]:
-		var m: InventoryUtils.SortMode = mode
-		var lbl := InventoryUtils.sort_mode_label(m)
-		var active: bool = _inv_sort_mode == m
-		sort_row.add_child(_make_sort_chip(lbl if not active else "▸%s" % lbl, func():
-			_inv_sort_mode = m
+	if _inv_bag_category != InventoryUtils.BagCategory.MATERIAL:
+		item_list.add_child(sort_row)
+		for mode in [InventoryUtils.SortMode.POWER_DESC, InventoryUtils.SortMode.RARITY_DESC, InventoryUtils.SortMode.LEVEL_DESC, InventoryUtils.SortMode.SLOT_ASC]:
+			var m: InventoryUtils.SortMode = mode
+			var lbl := InventoryUtils.sort_mode_label(m)
+			var active: bool = _inv_sort_mode == m
+			sort_row.add_child(_make_sort_chip(lbl if not active else "▸%s" % lbl, func():
+				_inv_sort_mode = m
+				_on_sub("装备")))
+		var filter_chip := _make_sort_chip("仅提升" if not _inv_filter_upgrades else "▸仅提升", func():
+			_inv_filter_upgrades = not _inv_filter_upgrades
+			_on_sub("装备"))
+		sort_row.add_child(filter_chip)
+		var view_chip := _make_sort_chip("列表" if not _inv_list_mode else "▸列表", func():
+			_inv_list_mode = not _inv_list_mode
+			_on_sub("装备"))
+		sort_row.add_child(view_chip)
+		if upgrade_n > 0 or junk_gold > 0:
+			var hint := Label.new()
+			var hint_parts: PackedStringArray = []
+			if upgrade_n > 0:
+				hint_parts.append("可提升 %d 件" % upgrade_n)
+			if junk_gold > 0:
+				hint_parts.append("垃圾值 %d 金" % junk_gold)
+			hint.text = " · ".join(hint_parts)
+			hint.add_theme_font_size_override("font_size", 10)
+			hint.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
+			hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			sort_row.add_child(hint)
+	match _inv_bag_category:
+		InventoryUtils.BagCategory.EQUIP:
+			_build_bag_equipment_section(d)
+		InventoryUtils.BagCategory.MATERIAL:
+			_build_bag_materials_section(d)
+		_:
+			_build_bag_equipment_section(d, true)
+			_build_bag_materials_section(d, true)
+
+func _build_bag_category_tabs() -> void:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 6)
+	item_list.add_child(row)
+	for cat in [InventoryUtils.BagCategory.EQUIP, InventoryUtils.BagCategory.MATERIAL, InventoryUtils.BagCategory.ALL]:
+		var c: InventoryUtils.BagCategory = cat
+		var lbl: String = InventoryUtils.bag_category_label(c)
+		var active: bool = _inv_bag_category == c
+		row.add_child(_make_sort_chip(lbl if not active else "▸%s" % lbl, func():
+			_inv_bag_category = c
 			_on_sub("装备")))
-	var filter_chip := _make_sort_chip("仅提升" if not _inv_filter_upgrades else "▸仅提升", func():
-		_inv_filter_upgrades = not _inv_filter_upgrades
-		_on_sub("装备"))
-	sort_row.add_child(filter_chip)
-	var view_chip := _make_sort_chip("列表" if not _inv_list_mode else "▸列表", func():
-		_inv_list_mode = not _inv_list_mode
-		_on_sub("装备"))
-	sort_row.add_child(view_chip)
-	if upgrade_n > 0 or junk_gold > 0:
-		var hint := Label.new()
-		var hint_parts: PackedStringArray = []
-		if upgrade_n > 0:
-			hint_parts.append("可提升 %d 件" % upgrade_n)
-		if junk_gold > 0:
-			hint_parts.append("垃圾值 %d 金" % junk_gold)
-		hint.text = " · ".join(hint_parts)
-		hint.add_theme_font_size_override("font_size", 10)
-		hint.add_theme_color_override("font_color", ThemeConfig.ACCENT_GREEN)
-		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		sort_row.add_child(hint)
+
+func _build_bag_equipment_section(d: Dictionary, with_subheader: bool = false) -> void:
+	if with_subheader:
+		_section_header("装备 (%d/%d)" % [d["inventory"].size(), int(d["inventory_max"])])
 	var bag_items: Array = d["inventory"]
 	if _inv_filter_upgrades:
 		bag_items = InventoryUtils.filter_upgrades_only(bag_items, d["equipment"])
 	if bag_items.is_empty():
 		_hint_text("暂无装备" if d["inventory"].is_empty() else "没有可提升的装备，关闭「仅提升」查看全部")
+		return
+	var sorted: Array = InventoryUtils.sort_inventory(bag_items, _inv_sort_mode)
+	if _inv_list_mode:
+		var bag_list := VBoxContainer.new()
+		bag_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bag_list.add_theme_constant_override("separation", 6)
+		item_list.add_child(bag_list)
+		for item in sorted:
+			var row := _make_equip_bag_row(item)
+			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bag_list.add_child(row)
 	else:
-		var sorted: Array = InventoryUtils.sort_inventory(bag_items, _inv_sort_mode)
-		if _inv_list_mode:
-			var bag_list := VBoxContainer.new()
-			bag_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			bag_list.add_theme_constant_override("separation", 6)
-			item_list.add_child(bag_list)
-			for item in sorted:
-				var row := _make_equip_bag_row(item)
-				row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				bag_list.add_child(row)
-		else:
-			item_list.add_child(_make_bag_item_flow(sorted))
+		item_list.add_child(_make_bag_item_flow(sorted))
+
+func _build_bag_materials_section(d: Dictionary, with_subheader: bool = false) -> void:
+	var entries: Array = InventoryUtils.collect_material_entries(d["materials"])
+	if with_subheader:
+		_section_header("材料 (%d种)" % entries.size())
+	if entries.is_empty():
+		_hint_text("暂无材料，战斗与分解可获得")
+		return
+	var grid := GridContainer.new()
+	grid.name = "MaterialGrid"
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.columns = _calc_bag_grid_columns()
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 10)
+	item_list.add_child(grid)
+	for entry in entries:
+		var slot := MaterialItemSlot.new()
+		grid.add_child(slot)
+		slot.setup(str(entry["id"]), int(entry["count"]), entry)
 
 func _make_bag_item_flow(items: Array) -> GridContainer:
 	var grid := GridContainer.new()
