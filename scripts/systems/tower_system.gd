@@ -74,21 +74,8 @@ func _process(delta: float) -> void:
 
 # ==================== 塔战斗 ====================
 func start_tower() -> void:
-	var data: Dictionary = GameManager.game_data
-	if not data.has("tower"):
-		data["tower"] = {"best_floor": 0, "attempts_today": 0, "last_attempt_date": ""}
-	
-	# 每天最多5次
-	var today: String = Time.get_date_string_from_system()
-	if data["tower"]["last_attempt_date"] != today:
-		data["tower"]["attempts_today"] = 0
-		data["tower"]["last_attempt_date"] = today
-	
-	if int(data["tower"]["attempts_today"]) >= 5:
-		GameManager.toast_message.emit("今日挑战次数已用完(5/5)", Color(1.0, 0.3, 0.3))
+	if not _try_consume_attempt():
 		return
-	
-	data["tower"]["attempts_today"] = int(data["tower"]["attempts_today"]) + 1
 	is_in_tower = true
 	current_floor = 1
 	current_wave = 0
@@ -229,8 +216,8 @@ func exit_tower() -> void:
 		GameManager.player_hp = int(GameManager.game_data["combat"]["max_hp"])
 		GameManager.toast_message.emit("退出深渊塔", Color(0.7, 0.7, 0.7))
 
-## UI调用入口
-func start_challenge() -> Dictionary:
+## 确保tower数据存在并重置每日次数
+func _ensure_tower_data() -> void:
 	var data: Dictionary = GameManager.game_data
 	if not data.has("tower"):
 		data["tower"] = {"best_floor": 0, "attempts_today": 0, "last_attempt_date": ""}
@@ -238,13 +225,25 @@ func start_challenge() -> Dictionary:
 	if data["tower"]["last_attempt_date"] != today:
 		data["tower"]["attempts_today"] = 0
 		data["tower"]["last_attempt_date"] = today
+
+## 检查并消耗每日次数(统一入口)
+func _try_consume_attempt() -> bool:
+	_ensure_tower_data()
+	var data: Dictionary = GameManager.game_data
 	if int(data["tower"]["attempts_today"]) >= 5:
 		GameManager.toast_message.emit("今日次数已用完(5/5)", Color(1.0, 0.3, 0.3))
-		return {"started": false}
+		return false
 	data["tower"]["attempts_today"] = int(data["tower"]["attempts_today"]) + 1
+	return true
+
+## UI调用入口
+func start_challenge() -> Dictionary:
+	if not _try_consume_attempt():
+		return {"started": false}
 	return {"started": true}
 
 ## 快速结算模拟(用于UI快速显示结果)
+## 先纯模拟计算结果，最后一次性发放奖励
 func simulate_tower_run() -> int:
 	var data: Dictionary = GameManager.game_data
 	var combat: Dictionary = data["combat"]
@@ -254,6 +253,13 @@ func simulate_tower_run() -> int:
 	var player_crit: float = float(combat["crit"])
 	var player_crit_dmg: float = float(combat["crit_dmg"])
 	var floors_cleared: int = 0
+	
+	# 累积奖励(模拟过程不修改游戏数据)
+	var total_gold: int = 0
+	var total_exp: int = 0
+	var total_gems: int = 0
+	var collected_materials: Dictionary = {}
+	var equip_drops: Array = []
 	
 	# 快速模拟战斗
 	for floor_num in range(1, 200):
@@ -265,17 +271,14 @@ func simulate_tower_run() -> int:
 		
 		for wave in range(waves):
 			var ehp: int = enemy_hp
-			# 模拟回合制战斗
 			var turns: int = 0
 			while ehp > 0 and player_hp_sim > 0 and turns < 100:
-				# 玩家攻击
 				var dmg: int = maxi(1, player_atk - enemy_def / 3)
 				if randf() * 100.0 < player_crit:
 					dmg = int(dmg * (1.0 + player_crit_dmg / 100.0))
 				ehp -= dmg
 				if ehp <= 0:
 					break
-				# 敌人攻击
 				var edmg: int = maxi(1, enemy_atk - player_def / 2)
 				player_hp_sim -= edmg
 				turns += 1
@@ -287,12 +290,35 @@ func simulate_tower_run() -> int:
 			break
 		
 		floors_cleared = floor_num
-		# 每层回复15%
 		player_hp_sim = mini(player_hp_sim + int(int(combat["max_hp"]) * 0.15), int(combat["max_hp"]))
-		# 发放奖励
+		
+		# 累积奖励(不修改游戏数据)
 		var rewards: Dictionary = _calculate_floor_rewards(floor_num)
-		_apply_rewards(rewards)
+		total_gold += int(rewards["gold"])
+		total_exp += int(rewards["exp"])
+		if rewards.has("gems"):
+			total_gems += int(rewards["gems"])
+		if rewards.has("material"):
+			var mat_id: String = rewards["material"]
+			collected_materials[mat_id] = int(collected_materials.get(mat_id, 0)) + int(rewards["material_amount"])
+		if rewards.has("equip"):
+			equip_drops.append(rewards)
 	
+	# === 模拟结束，一次性发放累积奖励 ===
+	GameManager.add_gold(total_gold)
+	GameManager.add_exp(total_exp)
+	if total_gems > 0:
+		GameManager.add_gems(total_gems)
+	for mat_id in collected_materials:
+		data["materials"][mat_id] = int(data["materials"].get(mat_id, 0)) + collected_materials[mat_id]
+	for eq_reward in equip_drops:
+		var slot: int = randi() % 6
+		var lv: int = int(data["player"]["level"])
+		var item: Dictionary = DataManager.generate_item(slot, lv, int(eq_reward["equip_rarity_boost"]))
+		data["inventory"].append(item)
+		GameManager.item_obtained.emit(item)
+	
+	_ensure_tower_data()
 	# 更新最高记录
 	if floors_cleared > int(data["tower"].get("best_floor", 0)):
 		data["tower"]["best_floor"] = floors_cleared

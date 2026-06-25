@@ -126,7 +126,7 @@ func get_daily_progress(task: Dictionary) -> int:
 		"boss_day":
 			return stats["boss_today"]
 		"zone_kill":
-			return stats["kills_today"]
+			return stats.get("zone_kills_today", 0)
 	return 0
 
 ## 领取每日任务奖励
@@ -209,6 +209,9 @@ func _is_consecutive_day(last_date: String, today: String) -> bool:
 
 ## 购买商品
 func buy_shop_item(shop_item: Dictionary) -> bool:
+	if not shop_item.has("cost") or not shop_item.has("currency") or not shop_item.has("type"):
+		GameManager.toast_message.emit("商品数据异常!", Color(1.0, 0.3, 0.3))
+		return false
 	var data: Dictionary = GameManager.game_data
 	var cost: int = shop_item["cost"]
 	var currency: String = shop_item["currency"]

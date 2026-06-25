@@ -99,6 +99,8 @@ func _ready() -> void:
 			_apply_offline_rewards(offline)
 	
 	player_hp = game_data["combat"]["hp"]
+	_recalculate_stats()
+	player_hp = mini(player_hp, int(game_data["combat"]["max_hp"]))
 	ProgressionManager.sync_unlocks(game_data, int(game_data["player"]["level"]), false)
 	is_loaded = true
 	_check_daily_reset()
@@ -305,6 +307,7 @@ func _aggregate_wave_rewards(killed_enemies: Array) -> Dictionary:
 		rewards["gold"] += int(enemy["gold"])
 		game_data["stats"]["total_kills"] += 1
 		game_data["stats"]["kills_today"] += 1
+		game_data["stats"]["zone_kills_today"] = int(game_data["stats"].get("zone_kills_today", 0)) + 1
 		pet_system.on_enemy_killed()
 		if ProgressionManager.is_system_unlocked("pet", player_lv):
 			pet_system.try_drop_pet(zone_idx)
@@ -377,25 +380,29 @@ func _start_next_wave() -> void:
 	attack_timer = 0.0
 	_sync_front_target()
 
+var _death_gold_lost := 0
+
 func _on_player_died() -> void:
 	player_died.emit()
 	AudioManager.play_sfx("death")
 	# 死亡惩罚: 损失10%金币 + 虚弱状态
-	var gold_lost: int = int(game_data["player"]["gold"] * 0.10)
-	game_data["player"]["gold"] = maxi(0, game_data["player"]["gold"] - gold_lost)
+	_death_gold_lost = int(game_data["player"]["gold"] * 0.10)
+	game_data["player"]["gold"] = maxi(0, game_data["player"]["gold"] - _death_gold_lost)
 	game_data["stats"]["total_deaths"] = int(game_data["stats"].get("total_deaths", 0)) + 1
 	# 虚弱debuff: 5秒内攻击力-20%
 	_death_debuff_timer = 5.0
 	_death_debuff_active = true
-	# 复活
+	# 复活血量
 	player_hp = game_data["combat"]["max_hp"]
 	attack_timer = 0.0
 	enemy_attack_timer = 0.0
+	# 暂停战斗，等待UI弹框关闭后再重启
+	is_wave_transition = true
+
+func revive_after_death() -> void:
 	is_wave_transition = false
 	_reset_zone_run()
 	_start_next_wave()
-	var msg := "你被击败了! 损失💰%s，虚弱5秒" % _fmt_num(gold_lost)
-	toast_message.emit(msg, Color(1.0, 0.3, 0.3))
 
 func _spawn_enemy() -> void:
 	_start_next_wave()
@@ -550,7 +557,7 @@ func _on_boss_killed() -> void:
 
 func _on_boss_fight_lost() -> void:
 	is_boss_fight = false
-	player_hp = game_data["combat"]["max_hp"]
+	player_hp = int(game_data["combat"]["max_hp"])
 	is_wave_transition = false
 	zone_run_boss_ready = true
 	battle_log.emit("Boss战失败...", Color(1.0, 0.3, 0.3))
@@ -939,6 +946,7 @@ func _check_daily_reset() -> void:
 		# 重置每日数据
 		game_data["stats"]["gold_today"] = 0
 		game_data["stats"]["kills_today"] = 0
+		game_data["stats"]["zone_kills_today"] = 0
 		game_data["stats"]["crafts_today"] = 0
 		game_data["stats"]["boss_today"] = 0
 		game_data["daily"]["tasks_date"] = today

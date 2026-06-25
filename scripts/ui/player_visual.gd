@@ -35,6 +35,7 @@ var motion_scale: Vector2:
 const HERO_TEXTURE := "res://assets/sprites/hero_iterations/hero_iter_08.png"
 const FALLBACK_IDLE := "res://assets/sprites/player_idle_1.png"
 const CHROMA_SHADER := "res://shaders/chroma_key.gdshader"
+const HERO_VERTICAL_OFFSET := 10.0  # 主角脚底额外下沉，修正与敌人不在同一水平线
 
 func _ready() -> void:
 	_ensure_nodes()
@@ -54,7 +55,7 @@ func _fit_hero() -> void:
 	var arena_h: float = _get_arena_height()
 	var arena_w: float = _get_arena_width()
 	var anchor: Dictionary = BattleLayout.get_player_anchor(Vector2(arena_w, arena_h))
-	_foot_y = float(anchor["ground_y"]) - BattleLayout.SPRITE_FOOT_INSET
+	_foot_y = float(anchor["ground_y"]) - BattleLayout.SPRITE_FOOT_INSET + HERO_VERTICAL_OFFSET
 	_sprite_h = arena_h * BattleLayout.HERO_HEIGHT_RATIO * float(anchor["scale"])
 	_sprite_w = _sprite_h * _ref_aspect
 	_anchor_x = float(anchor.get("screen_x", size.x * BattleLayout.PLAYER_SCREEN_X_RATIO))
@@ -174,28 +175,33 @@ func play_attack_sequence(on_strike: Callable = Callable(), on_finished: Callabl
 	var orig_mo: Vector2 = _mo
 	var ps: TextureRect = body_sprite
 	_action_tween = create_tween()
-	# 前摇
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-14, 3), 0.07)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(0.90, 1.06), 0.07)
+	# 蓄力：后拉+压扁+剑身发光
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(-26, 5), 0.10).set_ease(Tween.EASE_OUT)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(0.84, 1.12), 0.10)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", -0.14, 0.07)
-	# 出刀
+		_action_tween.parallel().tween_property(ps, "rotation", -0.18, 0.10)
+		_action_tween.parallel().tween_property(ps, "modulate", Color(1.25, 1.25, 1.4), 0.08)
+	# 冲刺出刀
 	_action_tween.tween_callback(func():
 		if on_strike.is_valid():
 			on_strike.call())
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(54, -7), 0.05).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(1.10, 0.92), 0.05)
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(82, -12), 0.05).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(1.22, 0.84), 0.05)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", 0.16, 0.05)
-	# 收招
-	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(36, -2), 0.07)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(1.02, 0.98), 0.07)
+		_action_tween.parallel().tween_property(ps, "rotation", 0.22, 0.05)
+		_action_tween.parallel().tween_property(ps, "modulate", Color(1.6, 1.6, 1.75), 0.03)
+	# 命中后短暂白光
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", 0.05, 0.07)
-	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.13).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
-	_action_tween.parallel().tween_property(self, "motion_scale", Vector2.ONE, 0.13)
+		_action_tween.tween_property(ps, "modulate", Color.WHITE, 0.06)
+	# 收招（弹性回弹）
+	_action_tween.tween_property(self, "motion_offset", orig_mo + Vector2(44, -3), 0.07)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2(1.04, 0.96), 0.07)
 	if ps:
-		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.11)
+		_action_tween.parallel().tween_property(ps, "rotation", 0.06, 0.07)
+	_action_tween.tween_property(self, "motion_offset", orig_mo, 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
+	_action_tween.parallel().tween_property(self, "motion_scale", Vector2.ONE, 0.15)
+	if ps:
+		_action_tween.parallel().tween_property(ps, "rotation", 0.0, 0.12)
 	_action_tween.tween_callback(func():
 		_finish_attack_sequence())
 
@@ -299,8 +305,8 @@ func _apply_chroma(rect: TextureRect) -> void:
 	if shader:
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
-		mat.set_shader_parameter("threshold", 0.40)
-		mat.set_shader_parameter("smoothing", 0.15)
+		mat.set_shader_parameter("threshold", 0.55)
+		mat.set_shader_parameter("smoothing", 0.08)
 		rect.material = mat
 
 func _ensure_nodes() -> void:

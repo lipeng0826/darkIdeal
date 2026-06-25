@@ -168,6 +168,7 @@ func _connect_all() -> void:
 	GameManager.item_obtained.connect(func(item: Dictionary):
 		if int(item["rarity"]) >= DataManager.Rarity.RARE: _shake_t = 0.15)
 	GameManager.wave_cleared.connect(_on_wave_cleared)
+	GameManager.player_died.connect(_on_death_show_dialog)
 	loot_dialog.closed.connect(_on_loot_closed)
 	GameManager.game_started.connect(_sync_battle_on_ready)
 	GameManager.zone_run_changed.connect(_refresh_wave_progress)
@@ -933,6 +934,7 @@ func _play_player_attack_on(enemy_id: int) -> void:
 	_player_atk_anim_playing = true
 	_player_atk_safety_timer = 0.0
 	var strike_cb := func():
+		_shake_t = maxf(_shake_t, 0.10)
 		_spawn_slash_arc()
 		if enemy_id >= 0 and _enemy_units.has(enemy_id):
 			_enemy_units[enemy_id].play_hit()
@@ -1014,32 +1016,62 @@ func _spawn_slash_arc() -> void:
 		slash_pos = _enemy_units[eid].position + Vector2(-24, 38)
 	elif _boss_unit and is_instance_valid(_boss_unit):
 		slash_pos = _boss_unit.position + Vector2(-24, 38)
+
+	# 主斩击：大斜向弧光
 	var slash := Label.new()
 	slash.text = "⚔"
-	slash.add_theme_font_size_override("font_size", 48)
-	slash.add_theme_color_override("font_color", ThemeConfig.ACCENT_GOLD)
-	slash.position = slash_pos
-	slash.pivot_offset = Vector2(24, 24)
+	slash.add_theme_font_size_override("font_size", 56)
+	slash.add_theme_color_override("font_color", Color(1.0, 0.95, 0.65))
+	slash.position = slash_pos + Vector2(-8, -4)
+	slash.pivot_offset = Vector2(28, 28)
 	slash.modulate.a = 0.0
+	slash.scale = Vector2(0.5, 0.5)
+	slash.rotation = -0.8
 	effect_layer.add_child(slash)
 	var tw := create_tween()
-	tw.tween_property(slash, "modulate:a", 1.0, 0.04)
-	tw.parallel().tween_property(slash, "rotation", 1.2, 0.15).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(slash, "scale", Vector2(1.8, 1.8), 0.15).set_ease(Tween.EASE_OUT)
-	tw.tween_property(slash, "modulate:a", 0.0, 0.2)
+	tw.set_parallel(true)
+	tw.tween_property(slash, "modulate:a", 1.0, 0.03)
+	tw.tween_property(slash, "rotation", 0.9, 0.12).set_ease(Tween.EASE_OUT)
+	tw.tween_property(slash, "scale", Vector2(2.2, 2.2), 0.12).set_ease(Tween.EASE_OUT)
+	tw.set_parallel(false)
+	tw.tween_property(slash, "modulate:a", 0.0, 0.18)
 	tw.tween_callback(slash.queue_free)
+
 	# 辅助斩痕
 	var slash2 := Label.new()
 	slash2.text = "╲"
-	slash2.add_theme_font_size_override("font_size", 64)
-	slash2.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5, 0.8))
-	slash2.position = slash_pos + Vector2(-18, -12)
-	slash2.pivot_offset = Vector2(16, 32)
+	slash2.add_theme_font_size_override("font_size", 72)
+	slash2.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 0.9))
+	slash2.position = slash_pos + Vector2(-20, -18)
+	slash2.pivot_offset = Vector2(18, 36)
+	slash2.modulate.a = 0.0
+	slash2.rotation = -0.4
 	effect_layer.add_child(slash2)
 	var tw2 := create_tween()
-	tw2.tween_property(slash2, "scale", Vector2(2.5, 2.5), 0.12).set_ease(Tween.EASE_OUT)
-	tw2.parallel().tween_property(slash2, "modulate:a", 0.0, 0.3)
+	tw2.set_parallel(true)
+	tw2.tween_property(slash2, "modulate:a", 0.9, 0.03)
+	tw2.tween_property(slash2, "scale", Vector2(2.8, 2.8), 0.12).set_ease(Tween.EASE_OUT)
+	tw2.tween_property(slash2, "rotation", 0.4, 0.12).set_ease(Tween.EASE_OUT)
+	tw2.set_parallel(false)
+	tw2.tween_property(slash2, "modulate:a", 0.0, 0.22)
 	tw2.tween_callback(slash2.queue_free)
+
+	# 命中爆点
+	var burst := Label.new()
+	burst.text = "✦"
+	burst.add_theme_font_size_override("font_size", 42)
+	burst.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	burst.position = slash_pos + Vector2(4, 2)
+	burst.pivot_offset = Vector2(21, 21)
+	burst.modulate.a = 0.0
+	effect_layer.add_child(burst)
+	var tw3 := create_tween()
+	tw3.set_parallel(true)
+	tw3.tween_property(burst, "modulate:a", 1.0, 0.02)
+	tw3.tween_property(burst, "scale", Vector2(2.0, 2.0), 0.10).set_ease(Tween.EASE_OUT)
+	tw3.set_parallel(false)
+	tw3.tween_property(burst, "modulate:a", 0.0, 0.16)
+	tw3.tween_callback(burst.queue_free)
 
 # ---------- 命中火花(玩家攻击时) ----------
 func _spawn_hit_sparks() -> void:
@@ -2777,6 +2809,20 @@ func _clear_enemy_units() -> void:
 		_boss_unit.queue_free()
 	_boss_unit = null
 
+var _is_death_dialog := false
+
+func _on_death_show_dialog() -> void:
+	_is_death_dialog = true
+	if _side_scroll:
+		_side_scroll.stop()
+	_clear_enemy_units()
+	if current_tab != 0:
+		# 不在战斗页面，自动复活
+		_is_death_dialog = false
+		GameManager.revive_after_death()
+		return
+	loot_dialog.show_death(GameManager._death_gold_lost)
+
 func _on_wave_cleared(rewards: Dictionary) -> void:
 	if _side_scroll:
 		_side_scroll.stop()
@@ -2798,7 +2844,11 @@ func _on_loot_closed() -> void:
 	_prev_php = GameManager.player_hp
 	_refresh_player_avatar()
 	_refresh_wave_progress()
-	GameManager.continue_next_wave()
+	if _is_death_dialog:
+		_is_death_dialog = false
+		GameManager.revive_after_death()
+	else:
+		GameManager.continue_next_wave()
 
 func _on_damage_popup(target_id: int, amount: int, kind: String) -> void:
 	if not _dmg_popups:
@@ -2815,11 +2865,12 @@ func _get_damage_anchor(target_id: int) -> Vector2:
 		if player_visual:
 			return player_visual.get_body_center_global()
 		return battle_arena.global_position + Vector2(battle_arena.size.x * 0.22, battle_arena.size.y * 0.52)
-	if target_id == GameManager.BOSS_POPUP_ID and _boss_unit:
+	if target_id == GameManager.BOSS_POPUP_ID and _boss_unit and is_instance_valid(_boss_unit):
 		return _boss_unit.global_position + Vector2(40, 32)
 	if _enemy_units.has(target_id):
 		var unit: BattleEnemyUnit = _enemy_units[target_id]
-		return unit.global_position + Vector2(40, 32)
+		if is_instance_valid(unit):
+			return unit.global_position + Vector2(40, 32)
 	return battle_arena.global_position + Vector2(battle_arena.size.x * 0.62, battle_arena.size.y * 0.45)
 
 func _on_skill_cast(skill_id: String, color: Color, _target_pos: Vector2) -> void:
@@ -2832,8 +2883,9 @@ func _on_skill_cast(skill_id: String, color: Color, _target_pos: Vector2) -> voi
 	var eid := GameManager.current_target_id
 	if _enemy_units.has(eid):
 		var unit: BattleEnemyUnit = _enemy_units[eid]
-		arena_pos = unit.position + Vector2(40, 45)
-	elif _boss_unit:
+		if is_instance_valid(unit):
+			arena_pos = unit.position + Vector2(40, 45)
+	elif _boss_unit and is_instance_valid(_boss_unit):
 		arena_pos = _boss_unit.position + Vector2(40, 45)
 	match skill_id:
 		"slash_storm", "execute", "whirlwind", "bleed":
@@ -2901,11 +2953,12 @@ func _spawn_arc_cleave_vfx(color: Color) -> void:
 	# 全体受击反馈
 	for eid in _enemy_units:
 		var unit: BattleEnemyUnit = _enemy_units[eid]
-		var hit_pos: Vector2 = unit.position + Vector2(40, 42)
-		battle_effects.spawn_hit_particles(hit_pos, color, 10)
-		battle_effects.spawn_crit_effect(hit_pos)
-		unit.play_hit()
-	if _boss_unit:
+		if is_instance_valid(unit):
+			var hit_pos: Vector2 = unit.position + Vector2(40, 42)
+			battle_effects.spawn_hit_particles(hit_pos, color, 10)
+			battle_effects.spawn_crit_effect(hit_pos)
+			unit.play_hit()
+	if _boss_unit and is_instance_valid(_boss_unit):
 		var bpos: Vector2 = _boss_unit.position + Vector2(40, 42)
 		battle_effects.spawn_hit_particles(bpos, color, 12)
 		battle_effects.spawn_crit_effect(bpos)

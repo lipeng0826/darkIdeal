@@ -42,8 +42,11 @@ func do_craft(recipe: Dictionary) -> Dictionary:
 	
 	var data: Dictionary = GameManager.game_data
 	
-	# 扣除金币
-	data["player"]["gold"] -= recipe["gold"]
+	# 扣除金币(通过GameManager接口确保统计正确)
+	if not GameManager.spend_gold(int(recipe["gold"])):
+		craft_failed.emit("金币不足")
+		AudioManager.play_sfx("error")
+		return {}
 	
 	# 扣除材料
 	var mats: Dictionary = recipe["materials"]

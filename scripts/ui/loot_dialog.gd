@@ -89,6 +89,9 @@ func show_rewards(rewards: Dictionary, title_text: String = "战斗胜利") -> v
 	_auto_close = true
 	if _title:
 		_title.text = title_text
+		_title.add_theme_color_override("font_color", Color(0.95, 0.88, 0.62))
+	if _continue_btn:
+		_continue_btn.text = "继续"
 	if _gold_line:
 		_gold_line.text = "💰 +%s    ✨ +%s EXP" % [_fmt(int(rewards.get("gold", 0))), _fmt(int(rewards.get("exp", 0)))]
 	_clear_items()
@@ -189,6 +192,27 @@ func _on_continue() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	closed.emit()
+
+## 死亡弹框模式
+func show_death(gold_lost: int) -> void:
+	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	_countdown = 5.0
+	_auto_close = true
+	if _title:
+		_title.text = "💀 你被击败了!"
+		_title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	if _gold_line:
+		if gold_lost > 0:
+			_gold_line.text = "损失 💰%s 金币" % _fmt(gold_lost)
+		else:
+			_gold_line.text = "无金币损失"
+	_clear_items()
+	_add_item_line("⚠ 虚弱 5 秒 (攻击力 -20%%)", Color(1.0, 0.55, 0.35))
+	_add_item_line("复活后从第 1 波重新开始", Color(0.65, 0.65, 0.72))
+	if _continue_btn:
+		_continue_btn.text = "复活"
+	_update_countdown_label()
 
 func _fmt(n: int) -> String:
 	if n >= 1000000:

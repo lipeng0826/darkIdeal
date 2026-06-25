@@ -109,17 +109,22 @@ func spawn_blood(pos: Vector2, direction: Vector2) -> void:
 
 ## 更新所有粒子
 func _process(delta: float) -> void:
-	# 更新普通粒子
+	var has_any: bool = not particles.is_empty() or not blood_particles.is_empty()
+	if not has_any:
+		return
+	
+	# 更新普通粒子(从后往前遍历，安全删除)
 	var i := particles.size() - 1
 	while i >= 0:
 		var p := particles[i]
 		p["life"] -= delta
-		p["pos"] += p["vel"] * delta
-		p["vel"].y += p["gravity"] * delta
-		p["vel"] *= 0.98  # 阻力
-		p["size"] *= 0.99
 		if p["life"] <= 0:
 			particles.remove_at(i)
+		else:
+			p["pos"] += p["vel"] * delta
+			p["vel"].y += p["gravity"] * delta
+			p["vel"] *= 0.98  # 阻力
+			p["size"] *= 0.99
 		i -= 1
 	
 	# 更新血花
@@ -127,11 +132,12 @@ func _process(delta: float) -> void:
 	while i >= 0:
 		var p := blood_particles[i]
 		p["life"] -= delta * 1.5
-		p["pos"] += p["vel"] * delta
-		p["vel"].y += p["gravity"] * delta
-		p["vel"] *= 0.95
 		if p["life"] <= 0:
 			blood_particles.remove_at(i)
+		else:
+			p["pos"] += p["vel"] * delta
+			p["vel"].y += p["gravity"] * delta
+			p["vel"] *= 0.95
 		i -= 1
 	
 	queue_redraw()

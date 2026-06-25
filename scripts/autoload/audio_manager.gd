@@ -3,6 +3,7 @@ extends Node
 ## 使用 AudioStreamGenerator 程序化生成暗黑风音效
 
 var _players: Array[AudioStreamPlayer] = []
+var _sfx_cache: Dictionary = {}  # 音效缓存，避免每次重新生PCM
 const MAX_PLAYERS := 8
 
 func _ready() -> void:
@@ -34,8 +35,10 @@ func play_sfx(sfx_name: String) -> void:
 	_players[0].stream = stream
 	_players[0].play()
 
-## 程序化生成音效
+## 程序化生成音效(带缓存)
 func _generate_sfx(sfx_name: String) -> AudioStream:
+	if _sfx_cache.has(sfx_name):
+		return _sfx_cache[sfx_name]
 	var sample_rate := 22050
 	var duration := 0.1
 	var frequency := 440.0
@@ -127,4 +130,5 @@ func _generate_sfx(sfx_name: String) -> AudioStream:
 		byte_data[i * 4 + 3] = (right >> 8) & 0xFF
 	
 	stream.data = byte_data
+	_sfx_cache[sfx_name] = stream  # 缓存生成结果
 	return stream

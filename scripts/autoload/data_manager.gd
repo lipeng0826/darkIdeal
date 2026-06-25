@@ -293,17 +293,19 @@ func exp_for_level(lv: int) -> int:
 		return ProgressionManager.exp_for_level(lv)
 	return int(55.0 * pow(lv, 1.42) * (1.0 + lv * 0.035))
 
-## 敌人属性缩放（按区域 + 玩家等级，血量优先成长）
+## 敌人属性缩放（根据玩家等级 + 区域，Lv1时几乎不缩放）
 func scale_enemy(base: Dictionary, player_lv: int, zone_idx: int = 0) -> Dictionary:
 	var zone: Dictionary = ZONES[clampi(zone_idx, 0, ZONES.size() - 1)]
-	var zone_mid: int = (int(zone["min_lv"]) + int(zone["max_lv"])) / 2
+	# 以玩家实际等级驱动缩放，Lv1时倍率=1.0
+	var lv_mult: float = 1.0 + (player_lv - 1) * 0.10 + zone_idx * 0.25
+	# HP温和成长
+	var hp_mult: float = lv_mult * 1.5
+	var stat_mult: float = lv_mult
+	# 越级刑图惩罚（玩家等级超出区域上限）
 	var gap: int = maxi(0, player_lv - int(zone["max_lv"]))
-	# 战斗有效等级：不低于区域中段，体现越级刷图
-	var eff_lv: int = maxi(zone_mid, player_lv)
-	var lv_mult: float = 1.0 + eff_lv * 0.14 + zone_idx * 0.35
-	var gap_hp: float = 1.0 + gap * 0.22
-	var hp_mult: float = lv_mult * gap_hp * 3.2
-	var stat_mult: float = lv_mult * (1.0 + gap * 0.07)
+	if gap > 0:
+		hp_mult *= 1.0 + gap * 0.15
+		stat_mult *= 1.0 + gap * 0.05
 	return {
 		"hp": maxi(1, int(base["hp"] * hp_mult)),
 		"atk": maxi(1, int(base["atk"] * stat_mult)),
