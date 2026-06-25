@@ -283,7 +283,7 @@ func _on_wave_cleared(killed_enemies: Array) -> void:
 	zone_run_cleared += 1
 	if zone_run_cleared >= zone_run_total:
 		zone_run_boss_ready = true
-		battle_log.emit("本局 %d 波已清完，可挑战 Boss!" % zone_run_total, Color(0.92, 0.78, 0.42))
+		battle_log.emit("本局 %d 波已清完，点击顶部波次条挑战 Boss!" % zone_run_total, Color(0.92, 0.78, 0.42))
 	_notify_zone_run()
 	is_wave_transition = true
 	wave_cleared.emit(rewards)

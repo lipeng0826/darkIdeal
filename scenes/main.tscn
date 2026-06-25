@@ -96,28 +96,110 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="ZoneBanner" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
+[node name="BattleTopHud" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1
-anchor_left = 0.05
+anchor_left = 0.02
 anchor_top = 0.0
-anchor_right = 0.95
-anchor_bottom = 0.05
-custom_minimum_size = Vector2(0, 32)
+anchor_right = 0.98
+anchor_bottom = 0.082
+theme_override_constants/separation = 8
 
-[node name="ZoneLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/ZoneBanner"]
+[node name="PlayerInfoOverlay" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-horizontal_alignment = 1
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.46
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Avatar" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay"]
+layout_mode = 2
+custom_minimum_size = Vector2(34, 34)
+stretch_mode = 5
+expand_mode = 1
+
+[node name="StatsCol" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 3
+
+[node name="HeaderRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LevelLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/HeaderRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+vertical_alignment = 1
+text = "Lv.1"
+
+[node name="HeaderSpacer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayerHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/HeaderRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 7)
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="ExpRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="ExpText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 0)
+theme_override_font_sizes/font_size = 8
+vertical_alignment = 1
+text = "EXP"
+
+[node name="ExpBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+custom_minimum_size = Vector2(0, 5)
+max_value = 100.0
+show_percentage = false
+
+[node name="ExpPct" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(34, 0)
+theme_override_font_sizes/font_size = 8
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="ZoneBanner" type="PanelContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.54
+size_flags_vertical = 3
+
+[node name="ZoneLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleTopHud/ZoneBanner"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 2
 vertical_alignment = 1
 text = "黑暗森林"
+clip_text = true
+text_overrun_behavior = 3
 
 [node name="BattleArena" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
 clip_contents = true
 layout_mode = 1
 anchor_left = 0.02
-anchor_top = 0.055
+anchor_top = 0.086
 anchor_right = 0.98
-anchor_bottom = 0.78
+anchor_bottom = 0.98
 
 [node name="ZoneBG" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
@@ -157,42 +239,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="PlayerInfoOverlay" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
-layout_mode = 1
-anchor_left = 0.02
-anchor_top = 0.03
-anchor_right = 0.36
-anchor_bottom = 0.13
-theme_override_constants/separation = 2
-
-[node name="PlayerInfoRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="Avatar" type="TextureRect" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(28, 28)
-stretch_mode = 5
-expand_mode = 1
-
-[node name="LevelLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-vertical_alignment = 1
-text = "Lv.1"
-
-[node name="PlayerHPBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 8)
-max_value = 100.0
-value = 100.0
-show_percentage = false
-
-[node name="PlayerHPLabel" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 8
-horizontal_alignment = 1
-
 [node name="EffectLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView/BattleArena"]
 layout_mode = 1
 anchors_preset = 15
@@ -215,70 +261,6 @@ bbcode_enabled = true
 scroll_following = true
 scroll_active = true
 z_index = 12
-
-[node name="HPSection" type="VBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
-layout_mode = 1
-anchor_left = 0.05
-anchor_top = 0.785
-anchor_right = 0.95
-anchor_bottom = 0.835
-theme_override_constants/separation = 6
-
-[node name="ExpRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView/HPSection"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="ExpText" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(60, 0)
-theme_override_font_sizes/font_size = 9
-vertical_alignment = 1
-text = "EXP"
-
-[node name="ExpBar" type="ProgressBar" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 10)
-max_value = 100.0
-show_percentage = false
-
-[node name="ExpPct" type="Label" parent="SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 9
-vertical_alignment = 1
-
-[node name="ActionRow" type="HBoxContainer" parent="SafeArea/VBox/ContentArea/BattleView"]
-layout_mode = 1
-anchor_left = 0.05
-anchor_top = 0.848
-anchor_right = 0.95
-anchor_bottom = 0.908
-theme_override_constants/separation = 6
-
-[node name="BossBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
-layout_mode = 2
-size_flags_horizontal = 0
-custom_minimum_size = Vector2(92, 30)
-theme_override_font_sizes/font_size = 10
-text = "挑战Boss"
-
-[node name="PrevZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(28, 30)
-theme_override_font_sizes/font_size = 11
-text = "◀"
-
-[node name="ZoneBtn" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 30)
-theme_override_font_sizes/font_size = 9
-
-[node name="NextZone" type="Button" parent="SafeArea/VBox/ContentArea/BattleView/ActionRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(28, 30)
-theme_override_font_sizes/font_size = 11
-text = "▶"
 
 [node name="DmgLayer" type="Control" parent="SafeArea/VBox/ContentArea/BattleView"]
 layout_mode = 1

@@ -16,8 +16,9 @@ extends Control
 @onready var panel_view: Control = $SafeArea/VBox/ContentArea/PanelView
 
 # 战斗 - 新左右对战
-@onready var zone_banner: PanelContainer = $SafeArea/VBox/ContentArea/BattleView/ZoneBanner
-@onready var zone_label: Label = $SafeArea/VBox/ContentArea/BattleView/ZoneBanner/ZoneLabel
+@onready var zone_banner: PanelContainer = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/ZoneBanner
+@onready var zone_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/ZoneBanner/ZoneLabel
+@onready var battle_top_hud: HBoxContainer = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud
 @onready var battle_arena: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena
 @onready var zone_bg: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/ZoneBG
 @onready var player_visual: PlayerVisual = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerVisual
@@ -25,21 +26,16 @@ extends Control
 @onready var enemy_container: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EnemyContainer
 @onready var effect_layer: Control = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EffectLayer
 @onready var battle_effects: BattleEffects = $SafeArea/VBox/ContentArea/BattleView/BattleArena/EffectLayer/BattleEffects
-@onready var player_info_overlay: VBoxContainer = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay
-@onready var player_avatar: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow/Avatar
-@onready var overlay_level_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerInfoRow/LevelLabel
-@onready var player_hp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerHPBar
-@onready var player_hp_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleArena/PlayerInfoOverlay/PlayerHPLabel
+@onready var player_info_overlay: HBoxContainer = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay
+@onready var player_avatar: TextureRect = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/Avatar
+@onready var overlay_level_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/HeaderRow/LevelLabel
+@onready var player_hp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/PlayerHPBar
+@onready var player_hp_label: Label = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/HeaderRow/PlayerHPLabel
 @onready var loot_dialog: LootDialog = $LootDialogLayer/LootDialog
-@onready var exp_text: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpText
-@onready var exp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpBar
-@onready var exp_pct: Label = $SafeArea/VBox/ContentArea/BattleView/HPSection/ExpRow/ExpPct
+@onready var exp_text: Label = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow/ExpText
+@onready var exp_bar: ProgressBar = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow/ExpBar
+@onready var exp_pct: Label = $SafeArea/VBox/ContentArea/BattleView/BattleTopHud/PlayerInfoOverlay/StatsCol/ExpRow/ExpPct
 
-@onready var action_row: HBoxContainer = $SafeArea/VBox/ContentArea/BattleView/ActionRow
-@onready var boss_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/BossBtn
-@onready var prev_zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/PrevZone
-@onready var zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/ZoneBtn
-@onready var next_zone_btn: Button = $SafeArea/VBox/ContentArea/BattleView/ActionRow/NextZone
 @onready var battle_log: RichTextLabel = $SafeArea/VBox/ContentArea/BattleView/BattleArena/BattleLog
 @onready var dmg_layer: Control = $SafeArea/VBox/ContentArea/BattleView/DmgLayer
 
@@ -85,7 +81,6 @@ var _equip_sell_confirm: EquipSellConfirm
 var _character_profile: CharacterProfileDialog
 var _dmg_popups: DamagePopupLayer
 var _skill_bar: BattleSkillBar
-var _quick_rail_row: HBoxContainer
 var _inv_sort_mode: InventoryUtils.SortMode = InventoryUtils.SortMode.POWER_DESC
 var _inv_filter_upgrades := false
 var _inv_list_mode := false
@@ -162,9 +157,6 @@ func _connect_all() -> void:
 		var btn: NavTabButton = _nav_buttons[i]
 		var idx: int = i
 		btn.tab_pressed.connect(func(): _switch_tab(idx))
-	boss_btn.pressed.connect(_on_boss)
-	prev_zone_btn.pressed.connect(_on_prev_zone)
-	next_zone_btn.pressed.connect(_on_next_zone)
 	panel_back_btn.pressed.connect(_close_panel)
 	GameManager.battle_log.connect(_on_log)
 	GameManager.toast_message.connect(_show_toast)
@@ -241,18 +233,53 @@ func _apply_theme() -> void:
 	# 区域横幅 - 暗色奇幻标题条
 	var zbs := StyleBoxFlat.new()
 	zbs.bg_color = Color(0.08, 0.06, 0.12, 0.88)
-	zbs.corner_radius_top_left = 14
-	zbs.corner_radius_top_right = 14
-	zbs.corner_radius_bottom_left = 14
-	zbs.corner_radius_bottom_right = 14
-	zbs.border_width_bottom = 2
-	zbs.border_color = Color(0.55, 0.38, 0.62, 0.75)
-	zbs.shadow_color = Color(0, 0, 0, 0.25)
-	zbs.shadow_size = 4
-	zbs.shadow_offset = Vector2(0, 2)
+	zbs.corner_radius_top_left = 10
+	zbs.corner_radius_top_right = 10
+	zbs.corner_radius_bottom_left = 10
+	zbs.corner_radius_bottom_right = 10
+	zbs.border_width_left = 1
+	zbs.border_width_right = 1
+	zbs.border_width_top = 1
+	zbs.border_width_bottom = 1
+	zbs.border_color = Color(0.45, 0.36, 0.58, 0.65)
+	zbs.content_margin_left = 12.0
+	zbs.content_margin_right = 12.0
+	zbs.content_margin_top = 6.0
+	zbs.content_margin_bottom = 6.0
 	zone_banner.add_theme_stylebox_override("panel", zbs)
-	zone_label.add_theme_color_override("font_color", Color(0.93, 0.88, 0.78))
-	zone_label.add_theme_font_size_override("font_size", 13)
+	zone_label.add_theme_color_override("font_color", Color(0.90, 0.86, 0.76))
+	zone_label.add_theme_font_size_override("font_size", 11)
+	if player_info_overlay and battle_top_hud and not battle_top_hud.get_node_or_null("PlayerHudPanel"):
+		var player_back := PanelContainer.new()
+		player_back.name = "PlayerHudPanel"
+		player_back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		player_back.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		player_back.size_flags_stretch_ratio = 0.46
+		var pbs := StyleBoxFlat.new()
+		pbs.bg_color = Color(0.06, 0.05, 0.09, 0.90)
+		pbs.corner_radius_top_left = 10
+		pbs.corner_radius_top_right = 10
+		pbs.corner_radius_bottom_left = 10
+		pbs.corner_radius_bottom_right = 10
+		pbs.border_width_left = 1
+		pbs.border_width_right = 1
+		pbs.border_width_top = 1
+		pbs.border_width_bottom = 1
+		pbs.border_color = Color(0.32, 0.52, 0.42, 0.55)
+		pbs.content_margin_left = 8.0
+		pbs.content_margin_right = 10.0
+		pbs.content_margin_top = 6.0
+		pbs.content_margin_bottom = 6.0
+		player_back.add_theme_stylebox_override("panel", pbs)
+		if battle_top_hud and player_info_overlay.get_parent() == battle_top_hud:
+			var idx: int = player_info_overlay.get_index()
+			battle_top_hud.remove_child(player_info_overlay)
+			player_back.add_child(player_info_overlay)
+			battle_top_hud.add_child(player_back)
+			battle_top_hud.move_child(player_back, idx)
+			player_info_overlay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			player_info_overlay.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			player_info_overlay.add_theme_constant_override("separation", 8)
 
 	# VS标签
 	vs_label.add_theme_color_override("font_color", ThemeConfig.ACCENT_ORANGE)
@@ -260,20 +287,12 @@ func _apply_theme() -> void:
 	# HP条样式（玩家头顶 + EXP）
 	_style_hp_bar(player_hp_bar, ThemeConfig.HP_GREEN)
 	_style_hp_bar(exp_bar, ThemeConfig.EXP_BLUE)
-	overlay_level_label.add_theme_color_override("font_color", ThemeConfig.SECONDARY)
-	player_hp_label.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-	exp_text.add_theme_color_override("font_color", ThemeConfig.EXP_BLUE)
-	exp_pct.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
-
-	# 按钮
-	_style_btn_boss(boss_btn)
-	_style_btn_zone(zone_btn)
-	_style_btn_light(prev_zone_btn)
-	_style_btn_light(next_zone_btn)
-	boss_btn.add_theme_color_override("font_color", ThemeConfig.TXT_ON_PRIMARY)
-	zone_btn.add_theme_color_override("font_color", Color(0.84, 0.90, 0.98))
-	prev_zone_btn.add_theme_color_override("font_color", Color(0.75, 0.80, 0.90))
-	next_zone_btn.add_theme_color_override("font_color", Color(0.75, 0.80, 0.90))
+	overlay_level_label.add_theme_color_override("font_color", Color(0.82, 0.90, 0.98))
+	player_hp_label.add_theme_color_override("font_color", Color(0.72, 0.88, 0.76))
+	exp_text.add_theme_color_override("font_color", Color(0.62, 0.78, 0.95))
+	exp_pct.add_theme_color_override("font_color", Color(0.68, 0.74, 0.82))
+	if player_avatar:
+		player_avatar.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	# 战斗日志 - 战场底部悬浮条
 	battle_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -417,19 +436,20 @@ func _setup_battle_arena_polish() -> void:
 
 	_wave_progress = BattleWaveProgress.new()
 	_wave_progress.name = "WaveProgress"
-	_wave_progress.anchor_left = 0.10
-	_wave_progress.anchor_top = 0.01
-	_wave_progress.anchor_right = 0.90
+	_wave_progress.anchor_left = 0.04
+	_wave_progress.anchor_top = 0.02
+	_wave_progress.anchor_right = 0.98
 	_wave_progress.anchor_bottom = 0.11
 	_wave_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	battle_arena.add_child(_wave_progress)
+	_wave_progress.boss_tap_requested.connect(_on_boss)
 
 	var stage_info := Panel.new()
 	stage_info.name = "StageInfoPanel"
 	stage_info.anchor_left = 0.73
-	stage_info.anchor_top = 0.11
+	stage_info.anchor_top = 0.12
 	stage_info.anchor_right = 0.985
-	stage_info.anchor_bottom = 0.33
+	stage_info.anchor_bottom = 0.34
 	stage_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sis := StyleBoxFlat.new()
 	sis.bg_color = Color(0.03, 0.03, 0.07, 0.78)
@@ -464,9 +484,9 @@ func _setup_battle_arena_polish() -> void:
 	var left_hud := Panel.new()
 	left_hud.name = "LeftCombatHUD"
 	left_hud.anchor_left = 0.01
-	left_hud.anchor_top = 0.19
+	left_hud.anchor_top = 0.10
 	left_hud.anchor_right = 0.18
-	left_hud.anchor_bottom = 0.55
+	left_hud.anchor_bottom = 0.48
 	left_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lhs := StyleBoxFlat.new()
 	lhs.bg_color = Color(0.03, 0.03, 0.06, 0.72)
@@ -503,32 +523,6 @@ func _setup_battle_arena_polish() -> void:
 	_left_hud_stats_label.add_theme_font_size_override("font_size", 9)
 	_left_hud_stats_label.add_theme_color_override("font_color", Color(0.86, 0.88, 0.93))
 	left_hud.add_child(_left_hud_stats_label)
-
-	var nameplate := Panel.new()
-	nameplate.name = "PlayerNameplate"
-	nameplate.anchor_left = 0.01
-	nameplate.anchor_top = 0.02
-	nameplate.anchor_right = 0.37
-	nameplate.anchor_bottom = 0.14
-	nameplate.offset_left = 0
-	nameplate.offset_top = 0
-	nameplate.offset_right = 0
-	nameplate.offset_bottom = 0
-	nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var nps := StyleBoxFlat.new()
-	nps.bg_color = Color(0.05, 0.04, 0.08, 0.72)
-	nps.corner_radius_top_left = 8
-	nps.corner_radius_top_right = 8
-	nps.corner_radius_bottom_left = 8
-	nps.corner_radius_bottom_right = 8
-	nps.border_width_left = 1
-	nps.border_width_right = 1
-	nps.border_width_top = 1
-	nps.border_width_bottom = 1
-	nps.border_color = Color(0.35, 0.55, 0.45, 0.55)
-	nameplate.add_theme_stylebox_override("panel", nps)
-	battle_arena.add_child(nameplate)
-	battle_arena.move_child(nameplate, player_info_overlay.get_index())
 
 	var log_back := Panel.new()
 	log_back.name = "LogBackdrop"
@@ -598,42 +592,12 @@ func _setup_battle_arena_polish() -> void:
 	battle_arena.add_child(skill_back)
 	battle_arena.move_child(skill_back, _skill_bar.get_index())
 
-	_quick_rail_row = HBoxContainer.new()
-	_quick_rail_row.name = "QuickRailRow"
-	_quick_rail_row.anchor_left = 0.22
-	_quick_rail_row.anchor_top = 0.918
-	_quick_rail_row.anchor_right = 0.78
-	_quick_rail_row.anchor_bottom = 0.962
-	_quick_rail_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_quick_rail_row.add_theme_constant_override("separation", 10)
-	battle_view.add_child(_quick_rail_row)
-	_quick_rail_row.add_child(_make_quick_rail_btn("图", func(): _open_panel("冒险", ["世界地图", "深渊塔"], "世界地图")))
-	_quick_rail_row.add_child(_make_quick_rail_btn("技", func(): _open_panel("角色", ["装备", "技能", "天赋", "宠物"], "技能")))
-	_quick_rail_row.add_child(_make_quick_rail_btn("包", func(): _open_panel("角色", ["装备", "技能", "天赋", "宠物"], "装备")))
+	_tune_battle_layout()
 	_update_stage_info()
 	_update_left_combat_hud()
 
-	var hp_section: VBoxContainer = battle_view.get_node("HPSection")
-	if hp_section and not hp_section.get_node_or_null("ExpBackdrop"):
-		var exp_back := Panel.new()
-		exp_back.name = "ExpBackdrop"
-		exp_back.set_anchors_preset(Control.PRESET_FULL_RECT)
-		exp_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ebs := StyleBoxFlat.new()
-		ebs.bg_color = Color(0.07, 0.06, 0.11, 0.7)
-		ebs.corner_radius_top_left = 10
-		ebs.corner_radius_top_right = 10
-		ebs.corner_radius_bottom_left = 10
-		ebs.corner_radius_bottom_right = 10
-		ebs.border_width_left = 1
-		ebs.border_width_right = 1
-		ebs.border_width_top = 1
-		ebs.border_width_bottom = 1
-		ebs.border_color = Color(0.38, 0.45, 0.62, 0.5)
-		exp_back.add_theme_stylebox_override("panel", ebs)
-		hp_section.add_child(exp_back)
-		hp_section.move_child(exp_back, 0)
 	exp_text.add_theme_color_override("font_color", Color(0.65, 0.82, 0.95))
+	exp_pct.add_theme_color_override("font_color", ThemeConfig.TXT_SECONDARY)
 
 	var hp_bg := StyleBoxFlat.new()
 	hp_bg.bg_color = Color(0.06, 0.06, 0.08, 0.92)
@@ -642,49 +606,48 @@ func _setup_battle_arena_polish() -> void:
 	hp_bg.corner_radius_bottom_left = 4
 	hp_bg.corner_radius_bottom_right = 4
 	player_hp_bar.add_theme_stylebox_override("background", hp_bg)
-	player_hp_label.add_theme_color_override("font_color", Color(0.82, 0.92, 0.82))
-	overlay_level_label.add_theme_color_override("font_color", Color(0.72, 0.86, 0.96))
+	player_hp_label.add_theme_color_override("font_color", Color(0.72, 0.88, 0.76))
+	overlay_level_label.add_theme_color_override("font_color", Color(0.82, 0.90, 0.98))
+	_polish_player_top_hud()
 
-	if action_row and not action_row.get_node_or_null("RowBackdrop"):
-		var row_back := Panel.new()
-		row_back.name = "RowBackdrop"
-		row_back.set_anchors_preset(Control.PRESET_FULL_RECT)
-		row_back.offset_left = -8
-		row_back.offset_top = -6
-		row_back.offset_right = 8
-		row_back.offset_bottom = 6
-		row_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var rbs := StyleBoxFlat.new()
-		rbs.bg_color = Color(0.06, 0.05, 0.09, 0.82)
-		rbs.corner_radius_top_left = 12
-		rbs.corner_radius_top_right = 12
-		rbs.corner_radius_bottom_left = 12
-		rbs.corner_radius_bottom_right = 12
-		rbs.border_width_left = 1
-		rbs.border_width_right = 1
-		rbs.border_width_top = 1
-		rbs.border_width_bottom = 1
-		rbs.border_color = Color(0.35, 0.28, 0.42, 0.6)
-		row_back.add_theme_stylebox_override("panel", rbs)
-		action_row.add_child(row_back)
-		action_row.move_child(row_back, 0)
-	_tune_action_row()
+	_arena_polish_done = true
 
-func _tune_action_row() -> void:
-	if not action_row:
+func _polish_player_top_hud() -> void:
+	if not player_info_overlay:
 		return
-	action_row.anchor_top = 0.848
-	action_row.anchor_bottom = 0.908
-	action_row.add_theme_constant_override("separation", 6)
-	boss_btn.custom_minimum_size = Vector2(92, 30)
-	boss_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	boss_btn.add_theme_font_size_override("font_size", 10)
-	zone_btn.custom_minimum_size = Vector2(0, 30)
-	zone_btn.add_theme_font_size_override("font_size", 9)
-	prev_zone_btn.custom_minimum_size = Vector2(28, 30)
-	prev_zone_btn.add_theme_font_size_override("font_size", 11)
-	next_zone_btn.custom_minimum_size = Vector2(28, 30)
-	next_zone_btn.add_theme_font_size_override("font_size", 11)
+	var stats_col: VBoxContainer = player_info_overlay.get_node_or_null("StatsCol")
+	if stats_col:
+		stats_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	if player_hp_bar:
+		player_hp_bar.show_percentage = false
+	if exp_bar:
+		exp_bar.show_percentage = false
+	if player_hp_label:
+		player_hp_label.text = "HP --/--"
+	if overlay_level_label:
+		overlay_level_label.add_theme_font_size_override("font_size", 11)
+
+func _tune_battle_layout() -> void:
+	if battle_top_hud:
+		battle_top_hud.anchor_left = 0.02
+		battle_top_hud.anchor_top = 0.0
+		battle_top_hud.anchor_right = 0.98
+		battle_top_hud.anchor_bottom = 0.082
+	battle_arena.anchor_top = 0.086
+	battle_arena.anchor_bottom = 0.98
+	if _wave_progress:
+		_wave_progress.anchor_left = 0.04
+		_wave_progress.anchor_top = 0.02
+		_wave_progress.anchor_right = 0.98
+		_wave_progress.anchor_bottom = 0.11
+	var stage_info: Panel = battle_arena.get_node_or_null("StageInfoPanel")
+	if stage_info:
+		stage_info.anchor_top = 0.12
+		stage_info.anchor_bottom = 0.34
+	var left_hud: Panel = battle_arena.get_node_or_null("LeftCombatHUD")
+	if left_hud:
+		left_hud.anchor_top = 0.10
+		left_hud.anchor_bottom = 0.48
 
 func _highlight_tab() -> void:
 	for i in range(_nav_buttons.size()):
@@ -1228,7 +1191,7 @@ func _update_battle(_delta: float) -> void:
 	var combat: Dictionary = GameManager.game_data["combat"]
 	player_hp_bar.max_value = combat["max_hp"]
 	player_hp_bar.value = GameManager.player_hp
-	player_hp_label.text = "%d/%d" % [GameManager.player_hp, combat["max_hp"]]
+	player_hp_label.text = "HP %d/%d" % [GameManager.player_hp, combat["max_hp"]]
 	overlay_level_label.text = "Lv.%d" % GameManager.game_data["player"]["level"]
 	var p: Dictionary = GameManager.game_data["player"]
 	var need: int = DataManager.exp_for_level(int(p["level"]))
@@ -1287,49 +1250,12 @@ func _refresh_wave_progress() -> void:
 		GameManager.zone_run_boss_ready,
 		GameManager.is_boss_fight
 	)
-	_style_boss_btn()
-
-func _style_boss_btn() -> void:
-	if not boss_btn:
-		return
-	var ready: bool = GameManager.zone_run_boss_ready and not GameManager.is_boss_fight
-	boss_btn.disabled = not ready and not GameManager.is_boss_fight
-	var n := StyleBoxFlat.new()
-	if GameManager.is_boss_fight:
-		n.bg_color = Color(0.45, 0.10, 0.10, 0.95)
-		n.border_color = Color(1.0, 0.35, 0.30, 0.9)
-	elif ready:
-		n.bg_color = Color(0.28, 0.12, 0.10, 0.95)
-		n.border_color = Color(0.95, 0.72, 0.32, 0.95)
-	else:
-		n.bg_color = Color(0.10, 0.09, 0.13, 0.88)
-		n.border_color = Color(0.35, 0.30, 0.28, 0.55)
-	n.border_width_left = 2
-	n.border_width_right = 2
-	n.border_width_top = 2
-	n.border_width_bottom = 2
-	n.corner_radius_top_left = 10
-	n.corner_radius_top_right = 10
-	n.corner_radius_bottom_left = 10
-	n.corner_radius_bottom_right = 10
-	boss_btn.add_theme_stylebox_override("normal", n)
-	var h := n.duplicate()
-	h.bg_color = h.bg_color.lightened(0.08)
-	boss_btn.add_theme_stylebox_override("hover", h)
-	var p := n.duplicate()
-	p.bg_color = p.bg_color.darkened(0.06)
-	boss_btn.add_theme_stylebox_override("pressed", p)
-	var dis := n.duplicate()
-	dis.bg_color = Color(0.08, 0.08, 0.10, 0.75)
-	dis.border_color = Color(0.28, 0.26, 0.24, 0.45)
-	boss_btn.add_theme_stylebox_override("disabled", dis)
-	boss_btn.add_theme_color_override("font_color", Color(1.0, 0.88, 0.55) if ready else Color(0.55, 0.52, 0.48))
 
 func _refresh_zone() -> void:
 	var zi: int = GameManager.game_data["zone"]["current"]
-	var display_name: String = LoreManager.get_zone_display_name(zi) if LoreManager.is_ready() else DataManager.ZONES[zi]["name"]
-	zone_label.text = display_name
-	zone_btn.text = "%s Lv.%d" % [display_name, DataManager.ZONES[zi]["min_lv"]]
+	var zone: Dictionary = DataManager.ZONES[zi]
+	var display_name: String = LoreManager.get_zone_display_name(zi) if LoreManager.is_ready() else zone["name"]
+	zone_label.text = "%s  Lv.%d-%d" % [display_name, int(zone["min_lv"]), int(zone["max_lv"])]
 	# 更新区域背景
 	var bg_path: String = AssetRegistry.get_zone_battle_texture(zi)
 	var bg_tex: Texture2D = AssetRegistry.load_texture(bg_path)
@@ -1345,7 +1271,7 @@ func _update_stage_info() -> void:
 		return
 	var zi: int = int(GameManager.game_data["zone"]["current"])
 	var zone: Dictionary = DataManager.ZONES[zi]
-	var wave_txt := "BOSS战" if GameManager.is_boss_fight else ("可挑战Boss" if GameManager.zone_run_boss_ready else "局内波次")
+	var wave_txt := "BOSS战" if GameManager.is_boss_fight else ("点击波次条挑战Boss" if GameManager.zone_run_boss_ready else "局内波次")
 	var run_info := "%d/%d" % [GameManager.zone_run_cleared, GameManager.zone_run_total]
 	var left_count := 0
 	if GameManager.battle_wave and GameManager.battle_wave.is_wave_active():
@@ -2644,14 +2570,13 @@ func _hint_text(text: String) -> void:
 	item_list.add_child(l)
 
 func _on_boss() -> void:
-	GameManager.start_boss_fight()
-	GameManager.current_enemy = {"name": GameManager.current_boss.get("name", "Boss")}
+	if not GameManager.start_boss_fight():
+		return
 	if _side_scroll:
 		_side_scroll.reset_boss()
 	_spawn_boss_unit()
 	_refresh_wave_progress()
 	_shake_t = 0.35
-	AudioManager.play_sfx("boss")
 
 func _on_prev_zone() -> void:
 	var c: int = GameManager.game_data["zone"]["current"]

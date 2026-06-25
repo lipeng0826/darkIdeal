@@ -2,6 +2,8 @@ extends Control
 class_name BattleWaveProgress
 ## 局内波次进度条：节点表示每波，末端大节点表示 Boss
 
+signal boss_tap_requested()
+
 var total_waves := 3
 var cleared_waves := 0
 var boss_ready := false
@@ -25,7 +27,16 @@ func set_run_state(cleared: int, total: int, boss_ready_state: bool, boss_fight:
 	total_waves = maxi(1, total)
 	boss_ready = boss_ready_state
 	is_boss_fight = boss_fight
+	mouse_filter = Control.MOUSE_FILTER_STOP if boss_ready and not is_boss_fight else Control.MOUSE_FILTER_IGNORE
 	queue_redraw()
+
+func _gui_input(event: InputEvent) -> void:
+	if not boss_ready or is_boss_fight:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			boss_tap_requested.emit()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -64,7 +75,7 @@ func _draw() -> void:
 	_draw_boss_node(Vector2(bx, cy))
 
 	# 标题
-	var title: String = "BOSS战" if is_boss_fight else ("可挑战 Boss" if boss_ready else "第 %d/%d 波" % [mini(cleared_waves + 1, total_waves), total_waves])
+	var title: String = "BOSS战" if is_boss_fight else ("点击挑战 Boss" if boss_ready else "第 %d/%d 波" % [mini(cleared_waves + 1, total_waves), total_waves])
 	_draw_centered_text(title, Vector2(w * 0.5, h * 0.18), 10, Color(0.90, 0.84, 0.68, 0.95))
 
 func _draw_wave_node(pos: Vector2, done: bool, current: bool, index: int) -> void:

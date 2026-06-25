@@ -15,3 +15,4 @@ res://scripts/ui/battle_enemy_unit.gd
 res://scripts/ui/battle_layout.gd
 res://scripts/ui/battle_side_scroll.gd
 res://scripts/ui/inventory_utils.gd
+res://scripts/ui/battle_wave_progress.gd
